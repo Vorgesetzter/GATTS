@@ -4,6 +4,7 @@ einops-exts
 git+https://github.com/resemble-ai/monotonic_align.git
 huggingface-hub==0.24.0
 ipywidgets
+jiwer
 librosa
 matplotlib
 munch
