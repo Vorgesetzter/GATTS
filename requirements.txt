@@ -12,6 +12,7 @@ nltk
 numpy>=1.26.0
 openai-whisper
 pandas
+pesq
 phonemizer
 pickleshare
 pydub

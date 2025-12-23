@@ -10,6 +10,13 @@ class AttackMode(Enum):
 
 class FitnessObjective(Enum):
 
+    # ==== Increase Naturalness ====
+    PHONEME_COUNT = auto()
+    AVG_LOGPROB = auto()
+    UTMOS = auto()
+    PPL = auto()
+    PESQ = auto()
+
     # ==== Interpolation Vector Restrictions ====
     L1 = auto()
     L2 = auto()
@@ -24,14 +31,10 @@ class FitnessObjective(Enum):
     SBERT_GT = auto()
     TEXT_EMB_GT = auto()
 
-    # ==== Increase Naturalness ====
-    AVG_LOGPROB = auto()
-    UTMOS = auto()
-    PPL = auto()
-
     # ==== Optimize Audio Similarity ====
-    WAV2VEC_GT = auto()
-    WAV2VEC_TARGET = auto()
+    WAV2VEC_SIMILAR = auto()
+    WAV2VEC_DIFFERENT = auto()
+    WAV2VEC_ASR = auto()
 
 
 def length_to_mask(lengths: Tensor) -> Tensor:
