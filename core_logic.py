@@ -444,4 +444,4 @@ def run_optimization_generation(config_data, model_data, audio_data, embedding_d
             break
 
     # ==== RETURN VARIABLES FOR MAIN ====
-    return FitnessData(mean_fitness_history, pareto_fitness_history, total_fitness_history), progress_bar, gen
+    return FitnessData(mean_fitness_history, pareto_fitness_history, total_fitness_history), progress_bar, stop_optimization, gen

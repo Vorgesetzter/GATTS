@@ -73,22 +73,9 @@ def main():
     for iteration in tqdm(range(config_data.loop_count), desc="Total Progress"):
 
         # Run the generation loop (Core Logic)
-        fitness_data, progress_bar, gen = run_optimization_generation(
+        fitness_data, progress_bar, stop_optimization, gen = run_optimization_generation(
             config_data, model_data, audio_data, embedding_data, iteration, device
         )
-
-        # Prepare runtime context for the reporting module
-        run_context = {
-            "mean_fitness_history": mean_fitness_history,
-            "pareto_fitness_history": pareto_fitness_history,
-            "total_fitness_history": total_fitness_history,
-            "progress_bar": progress_bar,
-            "current_gen": gen,
-            "stop_optimization": stop_optimization,
-            "active_objectives": data['ACTIVE_OBJECTIVES'],
-            "objective_order": data['OBJECTIVE_ORDER'],
-            "thresholds": data['THRESHOLDS']
-        }
 
         # 5. Finalize and Save Results
         # This creates folders, saves audio, generates graphs, and sends notifications
