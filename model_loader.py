@@ -173,62 +173,6 @@ def _load_optimizer(audio_data, config_data):
     )
 
 def _load_conditional_assets(model_data, config_data, audio_data, device):
-def _generate_pareto_population_graph(total_fitness, active_objectives, folder_path):
-
-    total_gens = len(total_fitness)
-
-    # 1. Determine which 4 generations to plot
-    # We use linspace to find 4 equidistant indices
-    indices = np.linspace(0, total_gens - 1, 4, dtype=int)
-
-    # 2. Setup Single Plot
-    obj_names = [obj.name for obj in active_objectives]
-    fig, ax = plt.subplots(figsize=(12, 10))
-
-    # Generate 4 distinct colors using a colormap (e.g., 'viridis', 'plasma', 'coolwarm')
-    # 0.0 = Start (Purple/Blue), 1.0 = End (Yellow/Red) depending on map
-    colors = cm.viridis(np.linspace(0, 1, len(indices)))
-
-    fig.suptitle(f"Pareto Front Evolution: {obj_names[0]} vs {obj_names[1]}", fontsize=18)
-
-    # 3. Plot the 4 snapshots on the SAME axis
-    for i, (idx, color) in enumerate(zip(indices, colors)):
-
-        # Extract data
-        fitness = _get_local_pareto_front(total_fitness[idx])
-
-        # Safety check
-        if fitness.size == 0 or fitness.shape[1] < 2:
-            continue
-
-        # Sort by first objective so the connecting line is clean, not a web
-        fitness = fitness[fitness[:, 0].argsort()]
-
-        # Create Label (e.g., "Gen 1 (0%)" or "Gen 50 (33%)")
-        label_text = f"Gen {idx + 1} ({(idx + 1) / total_gens:.0%})"
-
-        # Plot Scatter (Dots)
-        ax.scatter(fitness[:, 0], fitness[:, 1], color=color, s=60, alpha=0.8, edgecolors='k', label=label_text, zorder=i + 2)
-
-        # Plot Line (Connection)
-        # alpha=0.4 ensures lines don't distract too much from the points
-        ax.plot(fitness[:, 0], fitness[:, 1], color=color, linestyle='--', alpha=0.5, linewidth=1.5, zorder=i + 1)
-
-    # 4. Final Styling
-    ax.set_xlabel(obj_names[0], fontsize=12)
-    ax.set_ylabel(obj_names[1], fontsize=12)
-    ax.grid(True, linestyle=':', alpha=0.6)
-
-    # Add a legend to explain the colors
-    ax.legend(title="Evolution Progress", fontsize=10, title_fontsize=12, loc='best')
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-
-    # Save
-    save_path = os.path.join(folder_path, "pareto_evolution_single.png")
-    plt.savefig(save_path, dpi=300)
-    plt.close()
-    print(f"Pareto graph saved to: {save_path}")
 
     active_objectives = config_data.active_objectives
     mode = config_data.mode
