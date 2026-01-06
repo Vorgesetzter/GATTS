@@ -31,7 +31,7 @@ def parse_arguments():
     # Enum/Selection parameters
     parser.add_argument("--mode", type=str, default="TARGETED", choices=["TARGETED", "UNTARGETED", "NOISE_UNTARGETED"], help="Attack mode (case sensitive).")
     parser.add_argument("--ACTIVE_OBJECTIVES", nargs="+", type=str, default=["PESQ", "WER_GT"], help="List of active objectives (e.g. PESQ WER_GT UTMOS).")
-    parser.add_argument("--thresholds", nargs='*', type=str, default=["PESQ=0.3 ", "WER_GT=0.5"], help="Early stopping thresholds. Format: OBJ=Val (e.g. --thresholds PESQ=0.35 WER_GT=0.05)")
+    parser.add_argument("--thresholds", nargs='*', type=str, default=["PESQ=0.3 ", "WER_GT=0.25"], help="Early stopping thresholds. Format: OBJ=Val (e.g. --thresholds PESQ=0.35 WER_GT=0.05)")
 
     return parser.parse_args()
 
