@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import Wav2Vec2Model, Wav2Vec2Processor
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import AttackMode, FitnessObjective
 
 
@@ -27,19 +27,21 @@ class Wav2VecAsrObjective(BaseObjective):
     """
     objective_type = FitnessObjective.WAV2VEC_ASR
 
-    def __init__(self, config, model_data: ModelData, device: str = None, embedding_data=None):
-        super().__init__(config, model_data)
-
-        if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            self.device = device
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
         # Validate mode
         if config.mode is AttackMode.UNTARGETED:
             raise ValueError("AttackMode.UNTARGETED incompatible with Wav2VecAsrObjective")
 
-        # Lazy load Wav2Vec2 model if not already loaded
+        # Load Wav2Vec2 model if not already loaded
         if self.model_data.wav2vec_model is None:
             print(f"[INFO] Loading Wav2Vec2 Model on {self.device}...")
             self.model_data.wav2vec_processor = Wav2Vec2Processor.from_pretrained(
@@ -76,8 +78,17 @@ class Wav2VecAsrObjective(BaseObjective):
         else:
             audio_mixed_np = audio_mixed
 
-        # Synthesize audio from ASR text using TTS model
-        audio_asr = self.model_data.tts_model.inference(asr_text, audio_data.noise)
+        # Synthesize audio from ASR text using TTS model with precomputed style vectors
+        tokens = self.model_data.tts_model.preprocess_text(asr_text)
+        h_text, _, h_bert, input_lengths, text_mask = self.model_data.tts_model.extract_embeddings(tokens)
+        audio_asr = self.model_data.tts_model.inference_on_embedding(
+            input_lengths,
+            text_mask,
+            h_bert,
+            h_text,
+            audio_data.style_vector_acoustic,
+            audio_data.style_vector_prosodic
+        )
 
         with torch.no_grad():
             # Get embedding for ASR-synthesized audio

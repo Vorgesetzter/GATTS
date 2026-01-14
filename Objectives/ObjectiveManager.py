@@ -7,13 +7,34 @@ This class handles:
 3. Score collection and organization
 """
 
-import torch
+# Naturalness objectives
+from Objectives.Naturalness.PhonemeCountObjective import PhonemeCountObjective
+from Objectives.Naturalness.UtmosObjective import UtmosObjective
+from Objectives.Naturalness.PPLObjective import PPLObjective
+from Objectives.Naturalness.PESQObjective import PesqObjective
+
+# InterpolationVector objectives
+from Objectives.InterpolationVector.L1Objective import L1Objective
+from Objectives.InterpolationVector.L2Objective import L2Objective
+
+# Target objectives
+from Objectives.Target.WerTargetObjective import WerTargetObjective
+from Objectives.Target.SbertTargetObjective import SbertTargetObjective
+from Objectives.Target.TextEmbTargetObjective import TextEmbTargetObjective
+from Objectives.Target.WhisperProbObjective import WhisperProbObjective
+from Objectives.Target.Wav2VecDifferentObjective import Wav2VecDifferentObjective
+from Objectives.Target.Wav2VecAsrObjective import Wav2VecAsrObjective
+
+# GroundTruth objectives
+from Objectives.GroundTruth.WerGtObjective import WerGtObjective
+from Objectives.GroundTruth.SbertGtObjective import SbertGtObjective
+from Objectives.GroundTruth.TextEmbGtObjective import TextEmbGtObjective
+from Objectives.GroundTruth.Wav2VecSimilarObjective import Wav2VecSimilarObjective
+
 from typing import Optional
 from Datastructures.dataclass import ModelData, ConfigData, AudioData, EmbeddingData, StepContext
 from Datastructures.enum import FitnessObjective
 from Objectives.base import BaseObjective
-from Objectives.registry import get_objective, ensure_all_registered
-
 
 class ObjectiveManager:
     """
@@ -21,7 +42,7 @@ class ObjectiveManager:
 
     Usage:
         # Initialize once at start
-        manager = ObjectiveManager(config_data, model_data, device, embedding_data)
+        manager = ObjectiveManager(config_data, model_data, device, embedding_data, audio_data)
 
         # Evaluate on each batch
         scores = manager.evaluate_batch(context, audio_data)
@@ -32,66 +53,53 @@ class ObjectiveManager:
         config: ConfigData,
         model_data: ModelData,
         device: str,
-        embedding_data: Optional[EmbeddingData] = None
+        embedding_data: Optional[EmbeddingData] = None,
+        audio_data: Optional[AudioData] = None
     ):
-        # Ensure all objective classes are registered before lookup
-        ensure_all_registered()
-
         self.config = config
         self.model_data = model_data
         self.device = device
         self.embedding_data = embedding_data or EmbeddingData()
+        self.audio_data = audio_data
 
         # Initialize objectives dict
         self.objectives: dict[FitnessObjective, BaseObjective] = {}
 
-        # Initialize all active objectives
-        self._initialize_objectives()
-
-    def _initialize_objectives(self):
+    def initialize_objectives(self):
         """
         Initialize only the active objectives.
-        Models are lazy-loaded within each objective's __init__.
+        Each objective handles its own model loading and embedding computation in __init__.
         """
-        print(f"[ObjectiveManager] Initializing {len(self.config.active_objectives)} objectives...")
 
         for obj_enum in self.config.active_objectives:
             try:
-                # Use the lazy-loading get_objective function from registry
-                objective = get_objective(
-                    obj_enum,
+                objective_cls = BaseObjective.get_class(obj_enum)
+
+                # Initializes Objective, fills embedding_data if necessary
+                objective = objective_cls(
                     self.config,
                     self.model_data,
-                    device=self.device,
-                    embedding_data=self.embedding_data
+                    self.device,
+                    self.embedding_data,
+                    self.audio_data
                 )
 
                 self.objectives[obj_enum] = objective
-                print(f"  [OK] {obj_enum.name} (batching={objective.supports_batching})")
+                print(f"Initialized {obj_enum.name} (batching={objective.supports_batching})")
 
-            except ValueError as e:
-                print(f"  [WARNING] Objective {obj_enum.name} not found in registry: {e}")
-                continue
+            except ValueError:
+                raise ValueError(f"Objective {obj_enum.name} not found in registry")
             except Exception as e:
-                print(f"  [ERROR] Failed to initialize {obj_enum.name}: {e}")
-                raise
-
-        print(f"[ObjectiveManager] All objectives initialized.")
+                # FIX: Include the original error message 'e' so you can debug it!
+                raise ValueError(f"Failed to initialize {obj_enum.name}. Error: {e}") from e
 
     def evaluate_batch(
-        self,
-        context: StepContext,
-        audio_data: AudioData
+            self,
+            context: StepContext,
+            audio_data: AudioData
     ) -> dict[FitnessObjective, list[float]]:
         """
         Evaluate all objectives on a batch of samples.
-
-        Args:
-            context: StepContext containing batch data (audio_mixed, asr_text, etc.)
-            audio_data: AudioData with reference audio (GT, target)
-
-        Returns:
-            Dictionary mapping FitnessObjective -> list of scores (one per sample in batch)
         """
         scores: dict[FitnessObjective, list[float]] = {}
 
@@ -101,12 +109,15 @@ class ObjectiveManager:
                 scores[obj_enum] = batch_scores
             except Exception as e:
                 print(f"[ERROR] {obj_enum.name} evaluation failed: {e}")
+
+                # FIX: Use a specific list inside context to get the size
+                # (Standard dataclasses don't support len(context))
+                batch_size = len(context.clean_text)
+
                 # Return worst score (1.0) for all samples in batch
-                batch_size = len(context)
                 scores[obj_enum] = [1.0] * batch_size
 
         return scores
-
     def evaluate_single(
         self,
         context: StepContext,

@@ -1,6 +1,6 @@
 import torch
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
@@ -16,9 +16,15 @@ class L1Objective(BaseObjective):
     """
     objective_type = FitnessObjective.L1
 
-    def __init__(self, config, model_data: ModelData, device: str = None):
-        super().__init__(config, model_data)
-        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
     @property
     def supports_batching(self) -> bool:

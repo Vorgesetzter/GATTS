@@ -1,14 +1,21 @@
 import torch
 from Objectives.base.BaseObjective import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
 class PhonemeCountObjective(BaseObjective):
     objective_type = FitnessObjective.PHONEME_COUNT
 
-    def __init__(self, config, model_data: ModelData, device: str = None):
-        super().__init__(config, model_data)
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
         # This objective relies on the main TTS model which should already be loaded.
         if self.model_data.tts_model is None:
             raise RuntimeError("PhonemeCountObjective requires 'tts_model' to be loaded in ModelData.")

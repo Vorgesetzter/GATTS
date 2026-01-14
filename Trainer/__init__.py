@@ -9,20 +9,15 @@ Classes:
     - GraphPlotter: Generates visualization graphs
 """
 
-from Trainer.ModelLoader import EnvironmentLoader, initialize_environment, load_optimizer
-from Trainer.AdversarialTrainer import AdversarialTrainer, OptimizationResult, run_optimization_generation
+from Trainer.EnvironmentLoader import EnvironmentLoader
+from Trainer.AdversarialTrainer import AdversarialTrainer, OptimizationResult
 from Trainer.RunLogger import RunLogger
 from Trainer.GraphPlotter import GraphPlotter
 
 __all__ = [
-    # Classes
     "EnvironmentLoader",
     "AdversarialTrainer",
     "OptimizationResult",
     "RunLogger",
     "GraphPlotter",
-    # Backward-compatible functions
-    "initialize_environment",
-    "load_optimizer",
-    "run_optimization_generation",
 ]

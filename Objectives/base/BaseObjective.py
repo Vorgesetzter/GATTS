@@ -4,7 +4,7 @@ from typing import ClassVar, Type, TYPE_CHECKING
 if TYPE_CHECKING:
     from Datastructures.enum import FitnessObjective
 
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 
 
 class BaseObjective(ABC):
@@ -40,9 +40,19 @@ class BaseObjective(ABC):
         """Returns all registered FitnessObjective enums."""
         return list(cls._registry.keys())
 
-    def __init__(self, config, model_data: ModelData):
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
         self.config = config
         self.model_data = model_data
+        self.device = device or ('cuda' if __import__('torch').cuda.is_available() else 'cpu')
+        self.embedding_data = embedding_data
+        self.audio_data = audio_data
 
     @property
     def name(self):

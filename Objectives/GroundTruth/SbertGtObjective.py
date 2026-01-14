@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from sentence_transformers import SentenceTransformer, util
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
@@ -19,15 +19,17 @@ class SbertGtObjective(BaseObjective):
     """
     objective_type = FitnessObjective.SBERT_GT
 
-    def __init__(self, config, model_data: ModelData, device: str = None, embedding_data=None):
-        super().__init__(config, model_data)
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
-        if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            self.device = device
-
-        # Lazy load SBERT model if not already loaded
+        # Load SBERT model if not already loaded
         if self.model_data.sbert_model is None:
             print(f"[INFO] Loading SBERT Model (all-MiniLM-L6-v2) on {self.device}...")
             model = SentenceTransformer('all-MiniLM-L6-v2', device=self.device)
@@ -42,10 +44,9 @@ class SbertGtObjective(BaseObjective):
 
         self.sbert_model = self.model_data.sbert_model
 
-        # Store GT embedding (computed once)
-        self.embedding_data = embedding_data
-        if embedding_data is not None and embedding_data.s_bert_embedding_gt is None:
-            embedding_data.s_bert_embedding_gt = self.sbert_model.encode(
+        # Compute GT embedding if not already computed
+        if self.embedding_data is not None and self.embedding_data.s_bert_embedding_gt is None:
+            self.embedding_data.s_bert_embedding_gt = self.sbert_model.encode(
                 config.text_gt,
                 convert_to_tensor=True,
                 normalize_embeddings=True

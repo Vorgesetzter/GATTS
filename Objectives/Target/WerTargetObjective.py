@@ -1,6 +1,6 @@
 import jiwer
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
@@ -16,8 +16,15 @@ class WerTargetObjective(BaseObjective):
     """
     objective_type = FitnessObjective.WER_TARGET
 
-    def __init__(self, config, model_data: ModelData, device: str = None):
-        super().__init__(config, model_data)
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
         self.text_target = config.text_target
 
         # Lazy load WER transformations if not already loaded

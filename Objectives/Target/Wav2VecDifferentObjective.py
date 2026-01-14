@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import Wav2Vec2Model, Wav2Vec2Processor
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import AttackMode, FitnessObjective
 
 
@@ -22,19 +22,21 @@ class Wav2VecDifferentObjective(BaseObjective):
     """
     objective_type = FitnessObjective.WAV2VEC_DIFFERENT
 
-    def __init__(self, config, model_data: ModelData, device: str = None, embedding_data=None):
-        super().__init__(config, model_data)
-
-        if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            self.device = device
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
         # Validate mode
         if config.mode is AttackMode.UNTARGETED:
             raise ValueError("AttackMode.UNTARGETED incompatible with Wav2VecDifferentObjective")
 
-        # Lazy load Wav2Vec2 model if not already loaded
+        # Load Wav2Vec2 model if not already loaded
         if self.model_data.wav2vec_model is None:
             print(f"[INFO] Loading Wav2Vec2 Model on {self.device}...")
             self.model_data.wav2vec_processor = Wav2Vec2Processor.from_pretrained(
@@ -54,7 +56,20 @@ class Wav2VecDifferentObjective(BaseObjective):
 
         self.wav2vec_model = self.model_data.wav2vec_model
         self.wav2vec_processor = self.model_data.wav2vec_processor
-        self.embedding_data = embedding_data
+
+        # Compute GT embedding if not already computed
+        if self.embedding_data is not None and self.embedding_data.wav2vec_embedding_gt is None and audio_data is not None:
+            print("[INFO] Computing Wav2Vec GT embedding...")
+            self.embedding_data.wav2vec_embedding_gt = self._compute_embedding(audio_data.audio_gt)
+
+    def _compute_embedding(self, audio) -> torch.Tensor:
+        """Compute Wav2Vec embedding for audio."""
+        with torch.no_grad():
+            inputs = self.wav2vec_processor(
+                audio, sampling_rate=16000, return_tensors="pt"
+            ).to(self.device)
+            outputs = self.wav2vec_model(**inputs)
+            return torch.mean(outputs.last_hidden_state, dim=1)
 
     @property
     def supports_batching(self) -> bool:

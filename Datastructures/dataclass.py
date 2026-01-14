@@ -26,11 +26,6 @@ class ConfigData:
     mode: AttackMode
     active_objectives: List[FitnessObjective]
     thresholds: Dict[FitnessObjective, float]
-    objective_order: List[FitnessObjective]
-
-    # --- Model Constants ---
-    diffusion_steps: int
-    embedding_scale: float
 
     # --- Subspace Optimization ---
     subspace_optimization: bool
@@ -42,31 +37,33 @@ class ConfigData:
     def print_summary(self):
         """Prints the formatted configuration to console."""
         print("=== Configuration ===")
-        print(f"Mode:              {self.mode.name}")
-        print(f"GT Text:           {self.text_gt}")
-        print(f"Target Text:       {self.text_target}")
-        print(f"Generations:       {self.num_generations}")
-        print(f"Population Size:   {self.pop_size}")
-        print(f"Loop Count:        {self.loop_count}")
-        print(f"IV Scalar:         {self.iv_scalar}")
-        print(f"Size Per Phoneme:  {self.size_per_phoneme}")
-        print(f"Notify (WhatsApp): {self.notify}")
+        print(f"GT Text:               {self.text_gt}")
+        print(f"Target Text:           {self.text_target}")
+        print(f"Generations:           {self.num_generations}")
+        print(f"Population Size:       {self.pop_size}")
+        print(f"Loop Count:            {self.loop_count}")
+        print(f"IV Scalar:             {self.iv_scalar}")
+        print(f"Size Per Phoneme:      {self.size_per_phoneme}")
+        print(f"Batch Size:            {self.batch_size}")
+        print(f"Subspace Optimization: {self.subspace_optimization}")
+        print(f"Notify (WhatsApp):     {self.notify}")
+        print(f"Mode:                  {self.mode.name}")
 
         obj_names = [o.name for o in self.active_objectives]
-        print(f"Objectives:        {obj_names}")
+        print(f"Objectives:            {obj_names}")
 
         if self.thresholds:
             t_list = [f"{obj.name}<={val}" for obj, val in self.thresholds.items()]
-            print(f"Thresholds:        {', '.join(t_list)}")
+            print(f"Thresholds:            {', '.join(t_list)}")
         else:
             print("Thresholds:        None (Running full generations)")
 
         if self.multi_gpu:
             import torch
             gpu_count = torch.cuda.device_count()
-            print(f"Multi-GPU:         Enabled ({gpu_count} GPUs)")
+            print(f"Multi-GPU:             Enabled ({gpu_count} GPUs)")
         else:
-            print(f"Multi-GPU:         Disabled")
+            print(f"Multi-GPU:             Disabled")
 
         print("=====================")
 
@@ -75,7 +72,6 @@ class ModelData:
     # Required Audio
     tts_model: Any  # StyleTTS2
     asr_model: Any  # AutomaticSpeechRecognitionModel
-    optimizer: Any  # PymooOptimizer
 
     # Conditional Audio (Default to None)
     embedding_model: Optional[Any] = None  # SentenceTransformer (MPNet)
@@ -113,8 +109,6 @@ class AudioData:
     style_vector_acoustic: torch.Tensor
     style_vector_prosodic: torch.Tensor
 
-    noise: torch.Tensor
-
 @dataclass
 class BestMixedAudio:
     audio: torch.Tensor
@@ -142,9 +136,8 @@ class EmbeddingData:
 
 @dataclass
 class FitnessData:
-    mean_fitness: list[float]
     pareto_fitness: list[float]
-    total_fitness: list[float]
+    metric_fitness: list[float]
 
 
 @dataclass
@@ -153,7 +146,7 @@ class StepContext:
     asr_text: list[str]  # List of strings
     clean_text: list[str]
     interpolation_vector: torch.Tensor  # [Batch, Dim]
-    whisper_prob: Optional[list[float]] = None
+    mel_batch: Optional[torch.Tensor] = None  # [Batch, n_mels, Time] - for objectives needing mel spectrogram
 
     def get_item(self, index: int):
         """Helper to extract a single-item context from a batch."""
@@ -162,7 +155,7 @@ class StepContext:
             asr_text=self.asr_text[index],
             clean_text=self.clean_text[index],
             interpolation_vector=self.interpolation_vector[index],
-            whisper_prob=self.whisper_prob[index] if self.whisper_prob else None
+            mel_batch=self.mel_batch[index:index+1] if self.mel_batch is not None else None
         )
 
     def __len__(self):

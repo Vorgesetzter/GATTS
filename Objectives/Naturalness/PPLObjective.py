@@ -4,24 +4,25 @@ import torch.nn.functional as F
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast
 
 from Objectives.base.BaseObjective import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
 class PPLObjective(BaseObjective):
     objective_type = FitnessObjective.PPL
 
-    def __init__(self, config, model_data: ModelData, device: str = None):
-        super().__init__(config, model_data)
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
-        # 1. Device Auto-detection
-        if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            self.device = device
-
-        # 2. Lazy Loading (Check if Model AND Tokenizer exist)
-        if self.model_data.ppl_model is None or self.model_data.ppl_tokenizer is None:
+        # Lazy Loading (Check if Model AND Tokenizer exist)
+        if self.model_data.perplexity_model is None or self.model_data.perplexity_tokenizer is None:
             print(f"[INFO] Loading GPT-2 (PPL) on {self.device}...")
             try:
                 model_id = "gpt2"
@@ -40,8 +41,8 @@ class PPLObjective(BaseObjective):
                     model = nn.DataParallel(model)
 
                 # Store in Shared Container
-                self.model_data.ppl_tokenizer = tokenizer
-                self.model_data.ppl_model = model
+                self.model_data.perplexity_tokenizer = tokenizer
+                self.model_data.perplexity_model = model
 
                 # Local References
                 self.tokenizer = tokenizer
@@ -51,8 +52,8 @@ class PPLObjective(BaseObjective):
                 raise RuntimeError(f"Failed to load PPL model: {e}")
         else:
             # Reuse existing
-            self.tokenizer = self.model_data.ppl_tokenizer
-            self.model = self.model_data.ppl_model
+            self.tokenizer = self.model_data.perplexity_tokenizer
+            self.model = self.model_data.perplexity_model
 
     @property
     def supports_batching(self):

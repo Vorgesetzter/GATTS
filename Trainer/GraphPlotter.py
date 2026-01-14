@@ -7,33 +7,40 @@ import pandas as pd
 
 from helper import get_local_pareto_front, calculate_2d_hypervolume
 
+
 class GraphPlotter:
-    def __init__(self, folder_path, active_objectives, total_generations):
+    def __init__(self, folder_path, active_objectives, total_generations, fitness_history):
         self.folder_path = folder_path
         self.objectives = active_objectives
         self.total_gens = max(1, total_generations)
+
+        # fitness_history is a List of np.ndarrays: [Gen1_Matrix, Gen2_Matrix, ...]
+        # Each Matrix is shape (pop_size, num_objectives)
+        self.fitness_history = fitness_history
 
         # 1. Define the Global Gradient
         self.cmap = plt.get_cmap('viridis')
 
         # 2. Pre-calculate colors for EVERY generation
         # This ensures Gen X is always the same color in every function
-        self.colors = self.cmap(np.linspace(0, 1, total_generations))
+        self.colors = self.cmap(np.linspace(0, 1, self.total_gens))
 
     def _create_gradient_line(self, ax, x_data, y_data, num_interp_points=500):
         """
         Create a line with continuous color gradient using interpolation.
-
-        Args:
-            ax: Matplotlib axis to plot on
-            x_data: X coordinates (e.g., generations)
-            y_data: Y coordinates (e.g., fitness values)
-            num_interp_points: Number of points to interpolate for smooth gradient
         """
+        if len(x_data) < 2:
+            return
+
         # Interpolate to create smooth gradient
         x_smooth = np.linspace(x_data.min(), x_data.max(), num_interp_points)
-        interpolator = interp1d(x_data, y_data, kind='linear')
-        y_smooth = interpolator(x_smooth)
+
+        try:
+            interpolator = interp1d(x_data, y_data, kind='linear')
+            y_smooth = interpolator(x_smooth)
+        except Exception:
+            # Fallback if interpolation fails (e.g. flat line)
+            y_smooth = np.interp(x_smooth, x_data, y_data)
 
         # Create segments for LineCollection
         points = np.array([x_smooth, y_smooth]).T.reshape(-1, 1, 2)
@@ -47,83 +54,96 @@ class GraphPlotter:
         ax.add_collection(lc)
 
         # Set axis limits
-        y_margin = 0.05 * (y_data.max() - y_data.min() + 1e-6)
+        y_min, y_max = y_data.min(), y_data.max()
+        y_margin = 0.05 * (y_max - y_min + 1e-6)
         ax.set_xlim(x_data.min(), x_data.max())
-        ax.set_ylim(y_data.min() - y_margin, y_data.max() + y_margin)
+        ax.set_ylim(y_min - y_margin, y_max + y_margin)
 
-    def generate_all_visualizations(self, fitness):
-
-        if not fitness.total_fitness or len(fitness.total_fitness) == 0:
+    def generate_all_visualizations(self):
+        """
+        Orchestrates all plotting using self.fitness_history.
+        """
+        if not self.fitness_history or len(self.fitness_history) == 0:
             print("[Log] No fitness data available to plot.")
             return
 
+        # 1. Pareto & Hypervolume (Multi-objective only)
         if len(self.objectives) == 2:
-            self._generate_hypervolume_graph(fitness.total_fitness)
-            if len(fitness.total_fitness) >= 4:
-                self._generate_pareto_population_graph(fitness.total_fitness)
+            self._generate_hypervolume_graph()
+            if len(self.fitness_history) >= 2:
+                self._generate_pareto_population_graph()
 
-        self._generate_mean_population_graph(fitness.mean_fitness)
+        # 2. Mean Fitness Evolution
+        self._generate_mean_population_graph()
 
-        self._generate_minimal_population_graph(fitness.total_fitness)
+        # 3. Minimal (Best) Fitness Evolution
+        self._generate_minimal_population_graph()
 
         plt.close('all')
 
-    def _generate_pareto_population_graph(self, total_fitness):
+    def _generate_pareto_population_graph(self):
+        # Use self.fitness_history directly
+        total_gens = len(self.fitness_history)
         active_objectives = self.objectives
 
         # Determine which 4 generations to plot
-        total_gens = len(total_fitness)
         indices = np.linspace(0, total_gens - 1, 4, dtype=int)
+        indices = np.unique(indices)
 
         # Setup Plot
         obj_names = [obj.name for obj in active_objectives]
         fig, ax = plt.subplots(figsize=(12, 10))
 
-        # Generate 4 distinct colors using a colormap (e.g., 'viridis', 'plasma', 'coolwarm')
         fig.suptitle(f"Pareto Front Evolution: {obj_names[0]} vs {obj_names[1]}", fontsize=18)
 
         for i, idx in enumerate(indices):
-            fit_matrix = get_local_pareto_front(total_fitness[idx])
+            # Access raw matrix directly
+            gen_data = self.fitness_history[idx]
+
+            fit_matrix = get_local_pareto_front(gen_data)
             if fit_matrix.size == 0 or fit_matrix.shape[1] < 2: continue
 
-            color = self.colors[idx]
-            # Sort by first objective so the connecting line is clean, not a web
+            # Safe color access
+            color_idx = min(int(idx), len(self.colors) - 1)
+            color = self.colors[color_idx]
+
+            # Sort by first objective
             fit_matrix = fit_matrix[fit_matrix[:, 0].argsort()]
 
-            # Create Label (e.g., "Gen 1 (0%)" or "Gen 50 (33%)")
-            label_text = f"Gen {idx + 1} ({(idx + 1) / total_gens:.0%})"
+            label_text = f"Gen {idx + 1}"
 
-            # Plot Scatter (Dots)
-            ax.scatter(fit_matrix[:, 0], fit_matrix[:, 1], color=color, s=80, alpha=0.9, edgecolors='white', label=label_text, zorder=i + 10)
+            # Plot Scatter & Line
+            ax.scatter(fit_matrix[:, 0], fit_matrix[:, 1], color=color, s=80, alpha=0.9, edgecolors='white',
+                       label=label_text, zorder=i + 10)
+            ax.plot(fit_matrix[:, 0], fit_matrix[:, 1], color=color, linestyle='-', alpha=0.4, linewidth=2,
+                    zorder=i + 5)
 
-            # Plot Line (Connection)
-            ax.plot(fit_matrix[:, 0], fit_matrix[:, 1], color=color, linestyle='-', alpha=0.4, linewidth=2, zorder=i + 5)
-
-        # Final Styling
         ax.set_xlabel(f"{obj_names[0]} (Lower is better)")
         ax.set_ylabel(f"{obj_names[1]} (Lower is better)")
         ax.grid(True, linestyle='--', alpha=0.3)
 
-        # Add a legend to explain the colors
-        ax.legend(title="Evolution Progress", loc='upper right', frameon=True)
+        ax.legend(title="Evolution", loc='upper right', frameon=True)
         plt.tight_layout(rect=(0, 0.03, 1, 0.95))
         save_path = os.path.join(self.folder_path, "pareto_evolution.png")
         plt.savefig(save_path, dpi=300)
-        plt.close()
-
         print(f"[Log] Pareto evolution graph saved to {save_path}")
 
-    def _generate_mean_population_graph(self, mean_history):
+    def _generate_mean_population_graph(self):
         active_objectives = self.objectives
 
-        # 1. Convert list of dicts directly to a DataFrame
-        df = pd.DataFrame(mean_history)
+        # 1. Calculate Means manually from history
+        means_list = []
+        for gen_matrix in self.fitness_history:
+            # Axis 0 = Mean across population (rows)
+            means_list.append(np.mean(gen_matrix, axis=0))
 
-        # Define x-axis based on the actual length of the data received
-        actual_gens = len(df)
-        generations = np.arange(actual_gens, dtype=float)
+        # 2. Convert to DataFrame
+        obj_names = [obj.name for obj in active_objectives]
+        df = pd.DataFrame(means_list, columns=obj_names)
 
-        # 2. Setup Plot
+        generations = np.arange(len(df), dtype=float) + 1
+
+        # 3. Setup Plot
         num_objectives = len(active_objectives)
         fig, axs = plt.subplots(num_objectives, 1, figsize=(12, 5 * num_objectives), squeeze=False)
         fig.suptitle("Mean Fitness Evolution per Objective", fontsize=18)
@@ -132,10 +152,8 @@ class GraphPlotter:
             ax = axs[i, 0]
             y_values = df[obj.name].values.astype(float)
 
-            # Create continuous gradient line
             self._create_gradient_line(ax, generations, y_values)
 
-            # Styling
             ax.plot([], [], color=self.colors[-1], label="Population Mean")
             ax.set_title(f"Objective: {obj.name}", fontsize=14)
             ax.set_ylabel("Fitness Score")
@@ -147,35 +165,31 @@ class GraphPlotter:
 
         save_path = os.path.join(self.folder_path, "mean_fitness_stack.png")
         plt.savefig(save_path, dpi=300)
-        plt.close()
         print(f"[Log] Mean fitness graph saved to {save_path}")
 
-    def _generate_minimal_population_graph(self, total_fitness):
+    def _generate_minimal_population_graph(self):
         active_objectives = self.objectives
 
-        # 1. Extract the Minimums
-        # total_fitness is [Gens, Pop_Size, Objs]
-        mins_per_gen = [np.min(gen_data, axis=0) for gen_data in total_fitness]
+        # 1. Calculate Mins manually from history
+        mins_list = []
+        for gen_matrix in self.fitness_history:
+            mins_list.append(np.min(gen_matrix, axis=0))
 
-        # 2. Convert to DataFrame for robust indexing
-        # We pass the objectives as column names to make lookups easy
-        df = pd.DataFrame(mins_per_gen, columns=active_objectives)
+        # 2. Convert to DataFrame
+        obj_names = [obj.name for obj in active_objectives]
+        df = pd.DataFrame(mins_list, columns=obj_names)
 
-        actual_gens = len(df)
-        generations = np.arange(actual_gens, dtype=float)
+        generations = np.arange(len(df), dtype=float) + 1
 
         # 3. Setup Plot
         fig, axs = plt.subplots(len(active_objectives), 1, figsize=(12, 5 * len(active_objectives)), squeeze=False)
         fig.suptitle("Best (Minimal) Fitness Evolution per Objective", fontsize=18)
 
-        # 4. Plot each objective
         for i, obj in enumerate(active_objectives):
             ax = axs[i, 0]
+            # Use obj.name to access DataFrame column
+            y_values = df[obj.name].values.astype(float)
 
-            # Pull values safely (using the column name directly)
-            y_values = df[obj].values.astype(float)
-
-            # Create continuous gradient line
             self._create_gradient_line(ax, generations, y_values)
 
             ax.plot([], [], color=self.colors[-1], label="Best (Min) Fitness")
@@ -189,45 +203,35 @@ class GraphPlotter:
 
         save_path = os.path.join(self.folder_path, "minimal_fitness_stack.png")
         plt.savefig(save_path, dpi=300)
-        plt.close()
         print(f"[Log] Minimal fitness graph saved to {save_path}")
 
-    def _generate_hypervolume_graph(self, total_fitness):
+    def _generate_hypervolume_graph(self):
         """
         Plots the Hypervolume convergence over generations.
         """
-        if not total_fitness: return
+        if not self.fitness_history: return
 
         # Define a reference point (Worst case)
-        # For WER, 1.1 is a safe 'worse than max' limit.
-        # For PESQ (if inverted to 5 - PESQ), 5.1 is a safe limit.
-        # Ideally, pick values slightly larger than your thresholds.
         ref_point = [1.1, 1.1]
 
         hv_history = []
-        for gen_data in total_fitness:
-            # 1. Get only the non-dominated points for this generation
+        for gen_data in self.fitness_history:
             front = get_local_pareto_front(gen_data)
 
-            # 2. If you have more than 2 objectives, you'd need a library.
-            # Here we assume the first two active objectives.
             if front.shape[1] >= 2:
                 hv = calculate_2d_hypervolume(front[:, :2], ref_point)
                 hv_history.append(hv)
 
         if not hv_history: return
 
-        # 3. Plotting
         plt.figure(figsize=(10, 5))
-        plt.plot(range(len(hv_history)), hv_history, color='teal', linewidth=2.5)
+        plt.plot(range(1, len(hv_history) + 1), hv_history, color='teal', linewidth=2.5)
 
-        plt.title("Hypervolume Convergence (Overall Front Quality)", fontsize=16)
+        plt.title("Hypervolume Convergence", fontsize=16)
         plt.xlabel("Generation", fontsize=12)
         plt.ylabel("Hypervolume (Area)", fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.7)
-
-        # Add a shaded area for visual "volume"
-        plt.fill_between(range(len(hv_history)), hv_history, color='teal', alpha=0.1)
+        plt.fill_between(range(1, len(hv_history) + 1), hv_history, color='teal', alpha=0.1)
 
         plt.tight_layout()
         save_path = os.path.join(self.folder_path, "hypervolume_convergence.png")

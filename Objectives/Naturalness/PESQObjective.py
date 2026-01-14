@@ -3,28 +3,24 @@ import torch
 import torchaudio.functional as F
 from pesq import pesq
 from Objectives.base.BaseObjective import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
 class PesqObjective(BaseObjective):
     objective_type = FitnessObjective.PESQ
 
-    def __init__(self, config, model_data: ModelData, device: str = None):
-        super().__init__(config, model_data)
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
-        # 1. Device Setup
-        if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            self.device = device
-
-        # 2. Optimization: Pre-calculate Ground Truth (Resample Once)
-        # PESQ requires 16kHz. StyleTTS2 is 24kHz.
-        # We assume 'audio_data' is available via some global or passed in config,
-        # but since BaseObjective structure separates init from calculation,
-        # we prepare a placeholder. The first time _calculate_logic runs,
-        # we will cache the GT.
+        # Cache for resampled GT audio (computed on first use)
         self.cached_gt_16k = None
 
     @property

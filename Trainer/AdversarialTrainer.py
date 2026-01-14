@@ -1,30 +1,30 @@
 """
 AdversarialTrainer - Optimization-only trainer for adversarial TTS.
 
-This class handles ONLY the optimization logic:
-1. Main optimization loop (generation-based)
-2. Audio generation from interpolation vectors
-3. ASR transcription and fitness evaluation
+This class handles ONLY the optimization logic for a single cycle:
+1. Initialize optimizer with fresh interpolation vectors
+2. Run generations until complete or threshold met
+3. Return optimization results
 
+The outer loop (loop_count iterations) is handled by the calling code.
 Logging and visualization should be handled separately via RunLogger.
 """
 
 import time
-import sys
 import re
 import torch
 import numpy as np
 import whisper
 import torchaudio.functional as torchaudio_functional
 from tqdm.auto import tqdm
-from whisper.tokenizer import get_tokenizer
 from dataclasses import dataclass
 
 # Local imports
-from Datastructures.dataclass import ConfigData, ModelData, AudioData, EmbeddingData, StepContext, FitnessData
-from Datastructures.enum import FitnessObjective
-from Objectives.manager import ObjectiveManager
-from Trainer.ModelLoader import load_optimizer
+from Datastructures.dataclass import ConfigData, ModelData, AudioData, StepContext, FitnessData
+from Objectives.ObjectiveManager import ObjectiveManager
+
+# Import Pymoo components
+from Optimizer.pymoo_optimizer import PymooOptimizer
 
 
 @dataclass
@@ -37,28 +37,12 @@ class OptimizationResult:
 
 
 class AdversarialTrainer:
-    """
-    Optimization-only trainer for adversarial TTS.
-
-    This class focuses purely on running the optimization loop.
-    Use RunLogger separately to handle logging and visualization.
-
-    Usage:
-        trainer = AdversarialTrainer(config, models, audio, embeds, objective_manager, device)
-        results = trainer.run()  # Returns list of OptimizationResult
-
-        # Then use RunLogger separately
-        logger = RunLogger(config, models, audio, device)
-        for result in results:
-            logger.finalize_run(result.fitness_data, result.generation_count, result.elapsed_time)
-    """
 
     def __init__(
         self,
         config: ConfigData,
         models: ModelData,
         audio: AudioData,
-        embeds: EmbeddingData,
         objective_manager: ObjectiveManager,
         device: str
     ):
@@ -66,160 +50,122 @@ class AdversarialTrainer:
         self.config = config
         self.models = models
         self.audio = audio
-        self.embeds = embeds
         self.objective_manager = objective_manager
         self.device = device
 
-        # Prepare Whisper components
-        self._real_asr_model = self._get_real_asr_model(self.models.asr_model)
-        self._target_tokens_template = None
+        self._real_asr_model = self.models.asr_model.module if isinstance(self.models.asr_model, torch.nn.DataParallel) else self.models.asr_model
 
-        if FitnessObjective.WHISPER_PROB in self.config.active_objectives:
-            self._target_tokens_template = self._prepare_whisper_tokens()
-
-    def run(self) -> list[OptimizationResult]:
+    def run_full_iteration(self, optimizer: PymooOptimizer) -> tuple[list[np.ndarray], int, float]:
         """
-        Run the full optimization process.
+            Run a single optimization cycle through all generations.
 
-        Returns:
-            List of OptimizationResult, one per loop iteration.
-        """
-        print(f"[Info] Starting Training for {self.config.loop_count} loops...")
+            Initializes a fresh optimizer, runs until generations complete or
+            threshold is met, and returns the results.
 
-        results = []
+            Returns:
+                tuple: (history, generations_run, total_inference_time)
+                    - history: List of matrices (one per generation)
+                    - generations_run: Integer count of generations completed
+                    - total_inference_time: Float seconds
+            """
 
-        for loop_idx in range(self.config.loop_count):
-            print(f"\n--- Optimization Loop {loop_idx + 1}/{self.config.loop_count} ---")
+        fitness_history = []
+        gen = -1
+        elapsed_time_total = 0.0
 
-            # Run optimization
-            start_time = time.time()
-            fitness_data, gen_count, stopped_early = self._optimize_one_cycle(loop_idx)
-            elapsed_time = time.time() - start_time
+        print("Press Ctrl+C to stop training early and save results.")
 
-            # Store result
-            result = OptimizationResult(
-                fitness_data=fitness_data,
-                generation_count=gen_count,
-                elapsed_time=elapsed_time,
-                stopped_early=stopped_early
-            )
-            results.append(result)
+        try:
+            # 1. Create the progress bar object
+            with tqdm(range(self.config.num_generations), desc="Generations", leave=False) as pbar:
 
-            # Reset optimizer for next loop (if not last)
-            if loop_idx < self.config.loop_count - 1:
-                self._reset_state()
+                for gen in pbar:
+                    # --- Existing Logic ---
+                    fitness_score_per_objective, stop_optimization, elapsed_time = self.run_one_generation(optimizer)
+                    fitness_arrays = [np.array(scores) for scores in fitness_score_per_objective]
 
-        return results
+                    optimizer.assign_fitness(fitness_arrays)
+                    optimizer.update()
 
-    def run_single_cycle(self, iteration: int = 0) -> OptimizationResult:
-        """
-        Run a single optimization cycle.
+                    generation_matrix = np.column_stack(fitness_arrays)
+                    fitness_history.append(generation_matrix)
 
-        Args:
-            iteration: Iteration number for display purposes.
+                    elapsed_time_total += elapsed_time
 
-        Returns:
-            OptimizationResult with fitness data and timing.
-        """
-        start_time = time.time()
-        fitness_data, gen_count, stopped_early = self._optimize_one_cycle(iteration)
-        elapsed_time = time.time() - start_time
+                    # Calculate stats for this generation
+                    # axis=0 means "down the column" (across all individuals)
+                    current_means = generation_matrix.mean(axis=0)
+                    current_mins = generation_matrix.min(axis=0)
 
-        return OptimizationResult(
-            fitness_data=fitness_data,
-            generation_count=gen_count,
-            elapsed_time=elapsed_time,
-            stopped_early=stopped_early
-        )
+                    # Format the string (e.g., "WER: 0.15 (Avg: 0.40) | PESQ: ...")
+                    stats_parts = []
+                    for idx, obj in enumerate(self.config.active_objectives):
+                        stats_parts.append(
+                            f"{obj.name}: {current_mins[idx]:.4f} (Avg: {current_means[idx]:.4f})"
+                        )
 
-    def _optimize_one_cycle(self, iteration: int) -> tuple[FitnessData, int, bool]:
-        """
-        Runs one full optimization cycle (all generations).
+                    status_message = " | ".join(stats_parts)
 
-        Returns:
-            Tuple of (FitnessData, generation_count, stopped_early)
-        """
-        # History tracking
-        pareto_fitness_history = []
-        mean_fitness_history = []
-        total_fitness_history = []
+                    # Print a permanent log line (Preserves history)
+                    pbar.write(f"[Gen {gen + 1}] {status_message}")
+
+                    if stop_optimization:
+                        pbar.write(f"\n[!] Early Stopping at Generation {gen + 1} (Thresholds met).")
+                        break
+
+        except KeyboardInterrupt:
+            print(f"\n[!] Manual Stop triggered at Generation {gen + 1}. Saving results so far...")
+
+        # Clean up
+        torch.cuda.empty_cache()
+
+        return fitness_history, gen+1, elapsed_time_total
+
+    def run_one_generation(self, optimizer: PymooOptimizer) -> tuple[list[list[float]], bool, float]:
+
         stop_optimization = False
+        total_elapsed_time = 0
 
-        progress_bar = tqdm(
-            range(self.config.num_generations),
-            desc=f"Generation Loop {iteration + 1}",
-            leave=False
-        )
+        # Create list to store scores for this generation
+        fitness_per_objective: list[list[float]] = [[] for _ in self.config.active_objectives]
 
-        gen = 0
-        options = whisper.DecodingOptions()
+        # Get current population from optimizer
+        interpolation_vectors_full = torch.from_numpy(optimizer.get_x_current()).to(self.device).float()
 
-        for gen in progress_bar:
-            # Per-generation score tracking
-            gen_scores: dict[FitnessObjective, list[float]] = {
-                obj: [] for obj in self.config.active_objectives
-            }
+        # Process batches
+        for batch_idx in range(0, self.config.pop_size, self.config.batch_size):
+            batch_stop, batch_fitness_per_objective, elapsed_time = self._process_batch(
+                batch_idx,
+                interpolation_vectors_full,
+            )
+            total_elapsed_time += elapsed_time
 
-            # Get current population from optimizer
-            interpolation_vectors_full = torch.from_numpy(
-                self.models.optimizer.get_x_current()
-            ).to(self.device).float()
+            for obj_idx, score in enumerate(batch_fitness_per_objective):
+                fitness_per_objective[obj_idx].extend(score)
 
-            # Process batches
-            for batch_idx in range(0, self.config.pop_size, self.config.batch_size):
-                batch_stop = self._process_batch(
-                    batch_idx,
-                    interpolation_vectors_full,
-                    options,
-                    gen_scores
-                )
+            if batch_stop:
+                stop_optimization = True
 
-                if batch_stop:
-                    stop_optimization = True
+        return fitness_per_objective, stop_optimization, total_elapsed_time
 
-            # End of generation processing
-            gen_mean, gen_total, total_fitness = self._compute_generation_stats(gen, gen_scores)
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
 
-            # Update optimizer
-            self.models.optimizer.assign_fitness(gen_total)
-            self.models.optimizer.update()
-
-            # Capture Pareto front
-            current_front = np.array([c.fitness for c in self.models.optimizer.best_candidates])
-
-            # Add to history
-            mean_fitness_history.append(gen_mean)
-            total_fitness_history.append(total_fitness)
-            pareto_fitness_history.append(current_front)
-
-
-            if stop_optimization:
-                print(f"\n[!] Early Stopping at Generation {gen + 1} (Thresholds met).")
-                break
-
-        fitness_data = FitnessData(mean_fitness_history, pareto_fitness_history, total_fitness_history)
-        return fitness_data, gen + 1, stop_optimization
-
-    def _process_batch(
-        self,
-        batch_idx: int,
-        interpolation_vectors_full: torch.Tensor,
-        options: whisper.DecodingOptions,
-        gen_scores: dict
-    ) -> bool:
+    def _process_batch(self, batch_idx: int, interpolation_vectors_full: torch.Tensor) -> tuple[bool, list[list[float]], float]:
         """
-        Process a single batch through TTS -> ASR -> Fitness evaluation.
+        Returns:
+            stop_optimization (bool): True if early stopping met.
+            batch_scores_list (list[list[float]]): Scores for this batch, grouped by objective.
 
         Args:
             batch_idx: Starting index of this batch
             interpolation_vectors_full: Full population tensor
-            options: Whisper decoding options
-            gen_scores: Dict to collect scores into (modified in-place)
 
         Returns:
             True if early stopping criteria met, False otherwise
         """
-        stop_optimization = False
+        start_time = time.time()
 
         # 1. TTS Inference
         audio_mixed_batch, current_batch_size, interpolation_vectors = \
@@ -242,168 +188,86 @@ class AdversarialTrainer:
             audio_tensor_asr, n_mels=self._real_asr_model.dims.n_mels
         ).to(self.device)
 
-        # 4. Compute WHISPER_PROB (if active)
-        batch_whisper_values = self._compute_whisper_prob_batch(mel_batch, current_batch_size)
+        # 4. Run ASR decoding
+        results = whisper.decode(self._real_asr_model, mel_batch)
 
-        # 5. Run ASR decoding
-        results = whisper.decode(self._real_asr_model, mel_batch, options)
-
-        # 6. Process ASR results
+        # 5. Process ASR results
         asr_texts = [r.text for r in results]
         clean_texts = [re.sub(r'[^a-zA-Z\s]', '', t).strip() for t in asr_texts]
 
-        # 7. Create StepContext
+        # 6. Create StepContext
         context = StepContext(
             audio_mixed=audio_tensor_full,
             asr_text=asr_texts,
             clean_text=clean_texts,
             interpolation_vector=interpolation_vectors,
-            whisper_prob=batch_whisper_values
+            mel_batch=mel_batch
         )
 
-        # 8. Evaluate objectives
-        batch_scores = self.objective_manager.evaluate_batch(context, self.audio)
+        # 7. Evaluate objectives
+        # batch_scores is dict: {FitnessObjective.WER: [0.1, 0.2], ...}
+        batch_scores_dict = self.objective_manager.evaluate_batch(context, self.audio)
 
-        # 9. Collect scores and check early stopping
-        for i in range(current_batch_size):
-            current_ind_scores: dict[FitnessObjective, float] = {}
+        end_time = time.time()
 
-            if len(clean_texts[i]) < 2:
-                # Garbage text penalty
-                for obj in self.config.active_objectives:
-                    gen_scores[obj].append(1.0)
-                    current_ind_scores[obj] = 1.0
-            else:
-                for obj in self.config.active_objectives:
-                    score = batch_scores[obj][i]
-                    gen_scores[obj].append(score)
-                    current_ind_scores[obj] = score
+        # 9. Collect scores and check early stopping (vectorized)
+        # Create garbage mask for samples with invalid ASR output
+        batch_scores_list = []
 
-            # Early stopping check
-            if self._check_early_stopping(current_ind_scores):
-                stop_optimization = True
+        # Garbage Mask against silence trap
+        garbage_mask = np.array([len(t) < 2 for t in clean_texts], dtype=bool)
 
-        return stop_optimization
+        # Build score matrix: [batch_size, num_objectives]
+        score_matrix = np.zeros((current_batch_size, len(self.config.active_objectives)), dtype=np.float32)
 
-    def _reset_state(self):
-        """Reset state between optimization loops."""
-        self.models.optimizer = load_optimizer(self.audio, self.config)
-        torch.cuda.empty_cache()
+        for obj_idx, obj in enumerate(self.config.active_objectives):
+            scores = np.array(batch_scores_dict[obj], dtype=np.float32)
+            scores[garbage_mask] = 1.0  # Penalize garbage samples
 
-    # =========================================================================
-    # Helper Methods
-    # =========================================================================
+            # Store in matrix for check
+            score_matrix[:, obj_idx] = scores
 
-    def _get_real_asr_model(self, asr_model):
-        """Extract actual model from DataParallel wrapper if needed."""
-        if isinstance(asr_model, torch.nn.DataParallel):
-            return asr_model.module
-        return asr_model
+            # Store in list for return
+            batch_scores_list.append(scores.tolist())
 
-    def _prepare_whisper_tokens(self) -> torch.Tensor:
-        """Prepare tokenized target text for WHISPER_PROB computation."""
-        tokenizer = get_tokenizer(self._real_asr_model.is_multilingual)
-        target_ids = (
-            list(tokenizer.sot_sequence) +
-            tokenizer.encode(self.config.text_target) +
-            [tokenizer.eot]
-        )
-        return torch.tensor([target_ids]).to(self.device)
+        # Vectorized early stopping check
+        stop_optimization = self._check_early_stopping_batch(score_matrix)
+        elapsed_time = end_time - start_time
 
-    def _compute_whisper_prob_batch(self, mel_batch: torch.Tensor, batch_size: int) -> list:
-        """Compute WHISPER_PROB fitness values for a batch."""
-        if FitnessObjective.WHISPER_PROB not in self.config.active_objectives:
-            return [None] * batch_size
+        return stop_optimization, batch_scores_list, elapsed_time
 
-        if self._target_tokens_template is None:
-            return [None] * batch_size
 
-        target_tokens_batch = self._target_tokens_template.expand(batch_size, -1)
+    def _check_early_stopping_batch(self, score_matrix: np.ndarray) -> bool:
+        """
+        Check if any individual in the batch meets all threshold criteria.
 
-        with torch.no_grad():
-            logits = self.models.asr_model(mel_batch, target_tokens_batch)
+        Args:
+            score_matrix: [batch_size, num_objectives] array of scores
 
-        # Remove start and end token
-        logits_shifted = logits[:, :-1, :]
-        targets_shifted = target_tokens_batch[:, 1:]
-
-        # Cross-entropy loss per token
-        loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
-        raw_losses = loss_fct(
-            logits_shifted.reshape(-1, logits_shifted.size(-1)),
-            targets_shifted.reshape(-1)
-        )
-
-        # Average loss over sentence length
-        sample_losses = raw_losses.reshape(batch_size, -1).mean(dim=1)
-
-        # Convert to fitness score (0.0 = best, 1.0 = worst)
-        probs = torch.exp(-sample_losses)
-        vals = 1.0 - probs
-
-        return vals.detach().cpu().tolist()
-
-    def _check_early_stopping(self, current_ind_scores: dict) -> bool:
-        """Check if current individual meets all threshold criteria."""
+        Returns:
+            True if any individual meets all thresholds, False otherwise
+        """
         if not self.config.thresholds:
             return False
 
-        for obj in self.config.active_objectives:
+        # Build threshold array aligned with active_objectives order
+        threshold_mask = []  # Which objectives have thresholds
+        threshold_values = []
+
+        for obj_idx, obj in enumerate(self.config.active_objectives):
             if obj in self.config.thresholds:
-                if current_ind_scores[obj] > self.config.thresholds[obj]:
-                    return False
+                threshold_mask.append(obj_idx)
+                threshold_values.append(self.config.thresholds[obj])
 
-        return True
+        if not threshold_mask:
+            return False
 
-    def _compute_generation_stats(self, gen: int, gen_scores: dict):
-        """Compute statistics for the current generation."""
-        gen_mean: dict[str, float] = {"Generation": gen}
-        gen_total: list[np.ndarray] = []
+        # Extract only columns with thresholds
+        relevant_scores = score_matrix[:, threshold_mask]
+        thresholds = np.array(threshold_values, dtype=np.float32)
 
-        for obj in self.config.objective_order:
-            if obj not in self.config.active_objectives:
-                continue
+        # Check if any row has ALL scores <= thresholds
+        meets_thresholds = relevant_scores <= thresholds  # [batch, num_thresholds]
+        any_meets_all = np.any(np.all(meets_thresholds, axis=1))
 
-            arr = np.array(gen_scores[obj], dtype=float)
-            gen_mean[obj.name] = float(np.mean(arr))
-            gen_total.append(arr)
-
-        total_fitness = np.column_stack(gen_total)
-
-        return gen_mean, gen_total, total_fitness
-
-
-# Backward-compatible function wrapper
-def run_optimization_generation(
-    config_data: ConfigData,
-    model_data: ModelData,
-    audio_data: AudioData,
-    embedding_data: EmbeddingData,
-    objective_manager: ObjectiveManager,
-    iteration: int,
-    device: str
-):
-    """
-    Backward-compatible wrapper that runs one optimization cycle.
-
-    This function creates a temporary trainer and runs a single cycle.
-    For new code, prefer using AdversarialTrainer directly.
-    """
-    trainer = AdversarialTrainer(
-        config=config_data,
-        models=model_data,
-        audio=audio_data,
-        embeds=embedding_data,
-        objective_manager=objective_manager,
-        device=device
-    )
-
-    # Run one cycle
-    result = trainer.run_single_cycle(iteration)
-
-    # Create a dummy progress bar for backward compatibility
-    progress_bar = tqdm(range(config_data.num_generations), desc="", leave=False)
-    progress_bar.n = result.generation_count
-    progress_bar.refresh()
-
-    return result.fitness_data, progress_bar, result.stopped_early, result.generation_count - 1
+        return bool(any_meets_all)

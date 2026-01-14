@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sentence_transformers import SentenceTransformer
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
@@ -20,15 +20,17 @@ class TextEmbGtObjective(BaseObjective):
     """
     objective_type = FitnessObjective.TEXT_EMB_GT
 
-    def __init__(self, config, model_data: ModelData, device: str = None, embedding_data=None):
-        super().__init__(config, model_data)
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
-        if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            self.device = device
-
-        # Lazy load embedding model if not already loaded
+        # Load embedding model if not already loaded
         if self.model_data.embedding_model is None:
             print(f"[INFO] Loading SentenceTransformer (all-mpnet-base-v2) on {self.device}...")
             model = SentenceTransformer('all-mpnet-base-v2', device=self.device)
@@ -43,10 +45,9 @@ class TextEmbGtObjective(BaseObjective):
 
         self.embedding_model = self.model_data.embedding_model
 
-        # Store GT embedding (computed once)
-        self.embedding_data = embedding_data
-        if embedding_data is not None and embedding_data.text_embedding_gt is None:
-            embedding_data.text_embedding_gt = self.embedding_model.encode(
+        # Compute GT text embedding if not already computed
+        if self.embedding_data is not None and self.embedding_data.text_embedding_gt is None:
+            self.embedding_data.text_embedding_gt = self.embedding_model.encode(
                 config.text_gt,
                 convert_to_tensor=True,
                 normalize_embeddings=True

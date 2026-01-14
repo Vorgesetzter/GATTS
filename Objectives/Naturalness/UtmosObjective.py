@@ -2,22 +2,24 @@ import torch
 import torch.nn as nn
 from huggingface_hub import hf_hub_download
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, StepContext, AudioData
+from Datastructures.dataclass import ModelData, StepContext, AudioData, EmbeddingData
 from Datastructures.enum import FitnessObjective
 
 
 class UtmosObjective(BaseObjective):
     objective_type = FitnessObjective.UTMOS
 
-    def __init__(self, config, model_data: ModelData, device: str = None):
-        super().__init__(config, model_data)
+    def __init__(
+        self,
+        config,
+        model_data: ModelData,
+        device: str = None,
+        embedding_data: EmbeddingData = None,
+        audio_data: AudioData = None
+    ):
+        super().__init__(config, model_data, device, embedding_data, audio_data)
 
-        if device is None:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        else:
-            self.device = device
-
-        # --- 1. Load Model (Lazy Loading) ---
+        # Load Model (Lazy Loading)
         if self.model_data.utmos_model is None:
             print(f"[INFO] Loading UTMOS Model on {self.device}...")
             try:

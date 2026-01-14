@@ -2,7 +2,6 @@
 Objectives Module - Modular fitness objective implementations.
 
 Usage:
-    from Objectives.registry import OBJECTIVE_REGISTRY, get_objective
     from Datastructures.enum import FitnessObjective
 
     # Create an objective instance
