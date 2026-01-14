@@ -61,7 +61,6 @@ class Optimizer(ABC):
         # Format fitness into tuple if it is list or singular item.
         fitness = [f.numpy() if isinstance(f, Tensor) else f for f in fitness]
         fitness = tuple(fitness)
-
         assert (
             len(fitness) == self._num_objectives
         ), f"Error: {len(fitness)} Fitness values found, {self._num_objectives} expected."
@@ -75,39 +74,39 @@ class Optimizer(ABC):
         old_metrics = np.ascontiguousarray([cand.fitness for cand in self._best_candidates])
         metrics = np.vstack((new_metrics, old_metrics))
 
-        # Build data list correctly even if no data is passed
-        if not data:
-            new_data = [None] * new_metrics.shape[0]
-        else:
-            new_data = list(zip(*data))
-
-        # If previous best_candidates exist, append their data
-        old_data = [cand.data for cand in self._best_candidates] if self._best_candidates else []
-
-        data = tuple(new_data + old_data)
+        new_data: list[Any] = [None] * new_metrics.shape[0] if data is None else list(zip(*data))
+        data = tuple(new_data + [cand.data for cand in self._best_candidates])
 
         solutions = np.vstack(
             (self._x_current, np.array([cand.solution for cand in self._best_candidates]))
         )
 
-        sorted_indices = metrics.sum(1).argsort()
-        for i in range(metrics.shape[0]):
-            n = sorted_indices.shape[0]
-            on_pareto = np.ones(n, dtype=bool)
-            if i >= n:
-                break
-            on_pareto[i + 1 : n] = (
-                metrics[sorted_indices][i + 1 :] <= metrics[sorted_indices][i]
-            ).all(axis=1) & (metrics[sorted_indices][i + 1 :] < metrics[sorted_indices][i]).any(
+        n = metrics.shape[0]
+        indices = np.arange(n)
+
+        i = 0
+        while i < indices.shape[0]:
+            on_pareto: NDArray = np.ones(indices.shape[0], dtype=bool)
+
+            cur = metrics[indices[i]]
+            rest = metrics[indices[i + 1 :]]
+
+            dominated_by_cur = (rest >= cur).all(axis=1) & (rest > cur).any(
                 axis=1
-            )
-            sorted_indices = sorted_indices[on_pareto[:n]]
+            )  # minimization only
+
+            on_pareto[i + 1 :] = ~dominated_by_cur
+            indices = indices[on_pareto]
+
+            i += 1
 
         candidates = []
-        for index in sorted_indices:
+        for index in indices:
             candidates.append(
                 OptimizerCandidate(
-                    solution=solutions[index], fitness=metrics[index], data=data[index]
+                    solution=solutions[index],
+                    fitness=metrics[index],
+                    data=data[index],
                 )
             )
         self._previous_best = self._best_candidates
