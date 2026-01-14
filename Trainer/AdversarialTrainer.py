@@ -188,8 +188,9 @@ class AdversarialTrainer:
             audio_tensor_asr, n_mels=self._real_asr_model.dims.n_mels
         ).to(self.device)
 
-        # 4. Run ASR decoding
-        results = whisper.decode(self._real_asr_model, mel_batch)
+        # 4. Run ASR decoding (without_timestamps reduces hallucination on padded silence)
+        decode_options = whisper.DecodingOptions(without_timestamps=True)
+        results = whisper.decode(self._real_asr_model, mel_batch, decode_options)
 
         # 5. Process ASR results
         asr_texts = [r.text for r in results]

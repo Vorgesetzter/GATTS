@@ -87,7 +87,7 @@ def main():
         logger = RunLogger(optimizer, config_data, model_data, audio_data, fitness_data, generation_count, elapsed_time_total, device)
         logger.finalize_run()
 
-        print(f"Results saved to: {logger.folder_path}")
+        print("[Log] Finished saving all results")
 
 
 if __name__ == "__main__":

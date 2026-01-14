@@ -107,7 +107,7 @@ class RunLogger:
         csv_path = os.path.join(self.folder_path, "fitness_history.csv")
         df_raw.to_csv(csv_path, index=False)
 
-        print(f"[Log] Full fitness history saved to {csv_path}")
+        print("[Log] Full fitness history saved as fitness_history.csv")
 
     def _save_baseline_audio(self):
         """Saves GT and Target audio if they exist."""
@@ -122,7 +122,7 @@ class RunLogger:
 
         f = np.array([c.fitness for c in candidates])
 
-        print(f"\n[Log] Processing {len(candidates)} candidates...")
+        print(f"\n[Log] Candidates on Pareto Front: {len(candidates)}")
 
         # 1. Threshold filtering
         satisfied_mask = np.ones(len(candidates), dtype=bool)
@@ -135,21 +135,18 @@ class RunLogger:
 
         # 2. Logic: If some satisfy thresholds, only pick from those.
         # Otherwise, pick from everyone (fallback).
-        print(f"[Log] Final satisfied_mask: {satisfied_mask}")
         if np.any(satisfied_mask):
             eligible_indices = np.where(satisfied_mask)[0]
             eligible_fitness = f[satisfied_mask]
-            print(f"[Log] Using {len(eligible_indices)} candidates that meet all thresholds")
+            print(f"[Log] Using {len(eligible_indices)} candidate(s) that meet all thresholds")
         else:
             eligible_indices = np.arange(len(candidates))
             eligible_fitness = f
-            print(f"[Log] No candidates met thresholds. Preceding with all candidates.")
+            print(f"[Log] No candidate met thresholds. Preceding with all candidates.")
 
         pareto_mask = get_pareto_mask(eligible_fitness)
         final_indices = eligible_indices[pareto_mask]
         final_fitness = eligible_fitness[pareto_mask]
-
-        print(f"[Log] Candidates on Pareto Front: {len(final_indices)}")
 
         # --- 3. Knee Point Selection (Balance) ---
         # Normalize to [0,1] range so large metrics (like PESQ) don't dominate small ones (like WER)
@@ -168,7 +165,7 @@ class RunLogger:
         best_global_idx = final_indices[best_local_idx]
         selected = candidates[best_global_idx]
 
-        print(f"[Log] Selected Candidate Fitness: {selected.fitness}")
+        print(f"[Log] Selected Candidate Fitness: {selected.fitness.tolist()}")
         return selected
 
     def _run_final_inference(self, best_candidate):
@@ -247,7 +244,7 @@ class RunLogger:
 
         save_path = os.path.join(self.folder_path, "reconstruction_pack.pt")
         torch.save(state_dict, save_path)
-        print(f"[Log] Torch state saved for reproducibility: {save_path}")
+        print("[Log] Torch state saved as reconstruction_pack.pt")
 
     def _write_run_summary(self, best_mixed, candidate, gen_count, elapsed_time):
 

@@ -126,7 +126,7 @@ class GraphPlotter:
         plt.tight_layout(rect=(0, 0.03, 1, 0.95))
         save_path = os.path.join(self.folder_path, "pareto_evolution.png")
         plt.savefig(save_path, dpi=300)
-        print(f"[Log] Pareto evolution graph saved to {save_path}")
+        print("[Log] Pareto evolution graph saved as pareto_evolution.png")
 
     def _generate_mean_population_graph(self):
         active_objectives = self.objectives
@@ -165,7 +165,7 @@ class GraphPlotter:
 
         save_path = os.path.join(self.folder_path, "mean_fitness_stack.png")
         plt.savefig(save_path, dpi=300)
-        print(f"[Log] Mean fitness graph saved to {save_path}")
+        print("[Log] Mean fitness graph saved as mean_fitness_stack.png")
 
     def _generate_minimal_population_graph(self):
         active_objectives = self.objectives
@@ -203,7 +203,7 @@ class GraphPlotter:
 
         save_path = os.path.join(self.folder_path, "minimal_fitness_stack.png")
         plt.savefig(save_path, dpi=300)
-        print(f"[Log] Minimal fitness graph saved to {save_path}")
+        print("[Log] Minimal fitness graph saved as minimal_fitness_stack.png")
 
     def _generate_hypervolume_graph(self):
         """
