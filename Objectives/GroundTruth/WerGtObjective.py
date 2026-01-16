@@ -62,7 +62,8 @@ class WerGtObjective(BaseObjective):
             )
 
             # Normalize to (0, 1): raw_wer 0 -> 1 (100% similar), raw_wer 1+ -> 0 (0% similar)
-            val = max(0.0, 1.0 - float(raw_wer))
+            val = min(float(raw_wer), 2.0) / 2.0
+            val = -val + 1
             scores.append(val)
 
         return scores

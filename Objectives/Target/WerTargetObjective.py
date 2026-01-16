@@ -59,7 +59,7 @@ class WerTargetObjective(BaseObjective):
             )
 
             # Normalize to (0, 1): raw_wer 0 -> 0 (100% similar), raw_wer 1+ -> 1 (0% similar)
-            val = min(1.0, float(raw_wer))
+            val = min(2.0, float(raw_wer))
             scores.append(val)
 
         return scores
