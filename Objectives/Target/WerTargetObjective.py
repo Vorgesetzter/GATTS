@@ -22,10 +22,12 @@ class WerTargetObjective(BaseObjective):
         # Lazy load WER transformations if not already loaded
         if self.model_data.wer_transformations is None:
             self.model_data.wer_transformations = jiwer.Compose([
+                jiwer.RemoveEmptyStrings(),
                 jiwer.ToLowerCase(),
                 jiwer.RemoveMultipleSpaces(),
-                jiwer.RemovePunctuation(),
                 jiwer.Strip(),
+                jiwer.RemovePunctuation(),
+                jiwer.ReduceToListOfListOfWords(),
             ])
 
         self.wer_transformations = self.model_data.wer_transformations

@@ -35,7 +35,7 @@ class WhisperProbObjective(BaseObjective):
 
     def _prepare_whisper_tokens(self) -> torch.Tensor:
         """Prepare tokenized target text for WHISPER_PROB computation."""
-        tokenizer = get_tokenizer(self._real_asr_model.is_multilingual)
+        tokenizer = get_tokenizer(self._real_asr_model.model.is_multilingual)
         target_ids = (
             list(tokenizer.sot_sequence) +
             tokenizer.encode(self.text_target) +
@@ -70,9 +70,9 @@ class WhisperProbObjective(BaseObjective):
         target_tokens_batch = self._target_tokens_template.expand(batch_size, -1)
 
         with torch.no_grad():
-            logits = self.model_data.asr_model(mel_batch, target_tokens_batch)
+            logits = self._real_asr_model.model(mel_batch, target_tokens_batch)
 
-        # Remove start and end token
+        # Shift for causal LM alignment: predict token[i+1] from token[i]
         logits_shifted = logits[:, :-1, :]
         targets_shifted = target_tokens_batch[:, 1:]
 
