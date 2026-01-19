@@ -1,6 +1,7 @@
 import jiwer
 from Objectives.base import BaseObjective
-from Datastructures.dataclass import ModelData, ModelEmbeddingData, ObjectiveContext
+from Datastructures.dataclass import ObjectiveContext
+from tqdm.auto import tqdm
 
 
 class WerGtObjective(BaseObjective):
@@ -68,6 +69,9 @@ class WerGtObjective(BaseObjective):
 
             # Normalize to (0, 1): raw_wer 0 -> 1 (100% similar), raw_wer 1+ -> 0 (0% similar)
             # val = min(float(raw_wer), 2.0)
+
+            if raw_wer > 1:
+                tqdm.write(f"WER > 1 for \"{asr_text}\"")
             val = -raw_wer + 1
             scores.append(val)
 
