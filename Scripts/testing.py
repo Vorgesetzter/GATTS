@@ -104,9 +104,9 @@ def main():
     # --- Load StyleTTS2 and generate audio ---
     print("\n[Loading] StyleTTS2...")
     tts = StyleTTS2()
-    tts.load_models()
-    tts.load_checkpoints()
-    tts.sample_diffusion()
+    tts._load_models()
+    tts._load_checkpoints()
+    tts._sample_diffusion()
 
     print("\n[Generating] Audio from text...")
     # Noise tensor for style sampling (same noise = same speaking style)

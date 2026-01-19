@@ -7,6 +7,7 @@ import pandas as pd
 
 # Local Imports
 from Datastructures.dataclass import BestMixedAudio
+from helper import save_audio
 
 
 def get_pareto_mask(fitness_matrix):
@@ -45,15 +46,14 @@ class RunLogger:
         self.folder_path = None
 
     def save_audios(self, audio_gt, audio_target, audio_best_mixed):
-        if isinstance(audio_gt, torch.Tensor): audio_gt = audio_gt.detach().cpu().numpy().squeeze()
-        sf.write(os.path.join(self.folder_path, "ground_truth.wav"), audio_gt, samplerate=24000)
+
+        save_audio(audio_gt, os.path.join(self.folder_path, "ground_truth.wav"))
 
         if audio_target is not None:
-            if isinstance(audio_target, torch.Tensor): audio_target = audio_target.detach().cpu().numpy().squeeze()
-            sf.write(os.path.join(self.folder_path, "target.wav"), audio_target, samplerate=24000)
+            save_audio(audio_target, os.path.join(self.folder_path, "target.wav"))
 
-        if isinstance(audio_best_mixed, torch.Tensor): audio_best_mixed = audio_best_mixed.detach().cpu().numpy().squeeze()
-        sf.write(os.path.join(self.folder_path, "best_candidate.wav"), audio_best_mixed, samplerate=24000)
+        save_audio(audio_best_mixed, os.path.join(self.folder_path, "best_mixed.wav"))
+
 
     def save_fitness_history(self, fitness_history: list[np.ndarray] = None):
         """

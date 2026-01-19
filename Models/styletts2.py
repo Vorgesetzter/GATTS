@@ -31,14 +31,14 @@ class StyleTTS2:
         )
 
         # We pass the paths to the loading functions
-        self.load_models(config_path, checkpoint_path)
-        self.load_checkpoints()
-        self.sample_diffusion()
+        self._load_models(config_path, checkpoint_path)
+        self._load_checkpoints()
+        self._sample_diffusion()
 
         if torch.cuda.device_count() > 1 and hasattr(self.model, 'decoder'):
             self.model.decoder = nn.DataParallel(self.model.decoder)
 
-    def load_models(self, config_path, checkpoint_path):
+    def _load_models(self, config_path, checkpoint_path):
         with open(config_path) as f:
             config = yaml.safe_load(f)  # YAML File with model settings and pretrained checkpoints (ASR, F0, PL-BERT)
 
@@ -68,7 +68,7 @@ class StyleTTS2:
         params_whole = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
         self.params = params_whole['net']
 
-    def load_checkpoints(self):
+    def _load_checkpoints(self):
         for key in self.model:
             if key in self.params:
                 try:
@@ -84,7 +84,7 @@ class StyleTTS2:
                     self.model[key].load_state_dict(new_state_dict, strict=False)
         _ = [self.model[key].eval() for key in self.model]
 
-    def sample_diffusion(self):
+    def _sample_diffusion(self):
         self.sampler = DiffusionSampler(
             self.model.diffusion.diffusion,
             sampler=ADPM2Sampler(),
@@ -112,7 +112,7 @@ class StyleTTS2:
 
         return tokens
 
-    def predict_duration(self, bert_encoder_with_style: Tensor, input_length: Tensor) -> Tensor:
+    def _predict_duration(self, bert_encoder_with_style: Tensor, input_length: Tensor) -> Tensor:
         # 1. Duration Predictor
         # d_pred shape: (Batch, Phonemes, Hidden_Size)
         d_pred, _ = self.model.predictor.lstm(bert_encoder_with_style)
@@ -162,7 +162,7 @@ class StyleTTS2:
         return a_pred
 
     @torch.no_grad()
-    def compute_style_vector(self, noise: Tensor, h_bert: Tensor, embedding_scale: int, diffusion_steps: int) -> tuple[Tensor, Tensor]:
+    def _compute_style_vector(self, noise: Tensor, h_bert: Tensor, embedding_scale: int, diffusion_steps: int) -> tuple[Tensor, Tensor]:
 
         noise = noise.expand(h_bert.shape[0], -1, -1)
 
@@ -192,7 +192,7 @@ class StyleTTS2:
         h_bert_raw = self.model.bert(tokens, attention_mask=(~text_mask).int())
         h_bert = self.model.bert_encoder(h_bert_raw).transpose(-1, -2)
 
-        style_vector_acoustic, style_vector_prosodic = self.compute_style_vector(noise, h_bert_raw, embedding_scale, diffusion_steps)
+        style_vector_acoustic, style_vector_prosodic = self._compute_style_vector(noise, h_bert_raw, embedding_scale, diffusion_steps)
 
         return AudioEmbeddingData(input_lengths, text_mask, h_bert, h_text, style_vector_acoustic, style_vector_prosodic)
 
@@ -201,7 +201,7 @@ class StyleTTS2:
 
         h_bert_with_style = self.model.predictor.text_encoder(audio_embedding_data.h_bert, audio_embedding_data.style_vector_acoustic, audio_embedding_data.input_length, audio_embedding_data.text_mask)
 
-        a_pred = self.predict_duration(h_bert_with_style, audio_embedding_data.input_length)
+        a_pred = self._predict_duration(h_bert_with_style, audio_embedding_data.input_length)
         a_pred = a_pred.to(self.device)
 
         h_aligned = audio_embedding_data.h_text @ a_pred

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from tqdm.auto import tqdm
 import platform
 import numpy as np
+import soundfile as sf
 
 from Datastructures.enum import AttackMode
 
@@ -108,6 +109,12 @@ def send_whatsapp_notification():
         tqdm.write("WhatsApp notification sent.")
     except Exception as e:
         tqdm.write(f"Error sending WhatsApp: {e}")
+
+def save_audio(audio, file_path):
+    if isinstance(audio, torch.Tensor):
+        audio = audio.detach().cpu().numpy().squeeze()
+    sf.write(file_path, audio, samplerate=24000)
+
 
 def write_run_summary(folder_path, text_best, candidate, gen_count, elapsed_time, config_data):
 
