@@ -38,10 +38,7 @@ class VocabOverlapObjective(BaseObjective):
         for asr_text in asr_texts:
             # 1. Handle Invalid/Empty Outputs
             if not asr_text:
-                # If output is empty, technically 0 words survived (0.0).
-                # However, for optimization, you usually want valid text.
-                # If you want to penalize silence, return 1.0 here.
-                # If you purely want to know "did words survive?", return 0.0.
+                # Empty transcription = 0 GT words survived = success
                 scores.append(0.0)
                 continue
 

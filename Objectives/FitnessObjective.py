@@ -22,6 +22,7 @@ from Objectives.GroundTruth.WerGtObjective import WerGtObjective
 from Objectives.GroundTruth.SbertGtObjective import SbertGtObjective
 from Objectives.GroundTruth.TextEmbGtObjective import TextEmbGtObjective
 from Objectives.GroundTruth.Wav2VecSimilarObjective import Wav2VecSimilarObjective
+from Objectives.GroundTruth.VocabOverlapObjective import VocabOverlapObjective
 
 class FitnessObjective(Enum):
     # ==== Increase Naturalness ====
@@ -43,6 +44,7 @@ class FitnessObjective(Enum):
     WER_GT = WerGtObjective
     SBERT_GT = SbertGtObjective
     TEXT_EMB_GT = TextEmbGtObjective
+    SET_OVERLAP = VocabOverlapObjective
 
     # ==== Optimize Audio Similarity ====
     WAV2VEC_SIMILAR = Wav2VecSimilarObjective
