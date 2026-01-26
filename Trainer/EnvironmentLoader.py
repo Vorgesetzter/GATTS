@@ -121,6 +121,8 @@ class EnvironmentLoader:
 
         for entry in args.objectives.split(","):
             entry = entry.strip()
+            if not entry:
+                continue
             if "=" in entry:
                 obj_name, val_str = entry.split("=")
                 obj_name = obj_name.strip().upper()
@@ -133,7 +135,13 @@ class EnvironmentLoader:
                 except ValueError:
                     raise ValueError(f"Invalid threshold value '{val_str}' for {obj_name}")
             else:
-                raise ValueError(f"Invalid format '{entry}'. Expected 'OBJECTIVE=threshold'")
+                # Objective without threshold - just add to active objectives
+                obj_name = entry.strip().upper()
+                try:
+                    obj_enum = FitnessObjective[obj_name]
+                    active_objectives_raw.add(obj_enum)
+                except KeyError:
+                    raise ValueError(f"'{obj_name}' invalid objective.")
 
         if not active_objectives_raw:
             raise ValueError("Error: No valid objectives specified.")
