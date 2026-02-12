@@ -4,6 +4,10 @@ import torch
 import numpy as np
 import soundfile as sf
 import pandas as pd
+import matplotlib.pyplot as plt
+import librosa
+import librosa.display
+import whisper
 
 # Local Imports
 from Datastructures.dataclass import BestMixedAudio
@@ -53,6 +57,115 @@ class RunLogger:
             save_audio(audio_target, os.path.join(self.folder_path, "target.wav"))
 
         save_audio(audio_best_mixed, os.path.join(self.folder_path, "best_mixed.wav"))
+
+    def save_spectrograms(self, audio_gt, audio_target, audio_best_mixed):
+        """
+        Generates and saves mel spectrograms using Whisper's exact configuration.
+        This shows what the ASR model actually "sees" during inference.
+
+        Args:
+            audio_gt: Ground truth audio tensor
+            audio_target: Target audio tensor (can be None)
+            audio_best_mixed: Best mixed/adversarial audio tensor
+        """
+        def generate_whisper_spectrogram(audio_tensor, title, filename, return_spec=False):
+            """
+            Helper function to generate and save a spectrogram using Whisper's parameters.
+            Uses Whisper's exact mel spectrogram settings but skips padding for cleaner visualization.
+            """
+            # Ensure tensor format
+            if not isinstance(audio_tensor, torch.Tensor):
+                audio_tensor = torch.from_numpy(audio_tensor)
+
+            # Move to CPU and ensure correct shape (batch_size, samples)
+            audio_tensor = audio_tensor.detach().cpu()
+            if audio_tensor.dim() == 1:
+                audio_tensor = audio_tensor.unsqueeze(0)
+            elif audio_tensor.dim() == 3:
+                audio_tensor = audio_tensor.squeeze(1)
+
+            # Resample to 16kHz (Whisper's sample rate)
+            import torchaudio.functional as F
+            audio_16k = F.resample(audio_tensor, 24000, 16000)
+
+            # Generate mel spectrogram using Whisper's function WITHOUT padding
+            # This uses Whisper's parameters: n_fft=400, hop_length=160, n_mels=80
+            mel_spec = whisper.log_mel_spectrogram(audio_16k, n_mels=80).squeeze(0).numpy()
+
+            # Create figure
+            plt.figure(figsize=(10, 4))
+            librosa.display.specshow(
+                mel_spec,
+                sr=16000,
+                hop_length=160,
+                x_axis='time',
+                y_axis='mel',
+                cmap='viridis'
+            )
+            plt.colorbar(format='%+2.0f', label='Log Magnitude')
+            plt.title(f'{title} (Whisper\'s Parameters)')
+            plt.tight_layout()
+
+            # Save figure
+            save_path = os.path.join(self.folder_path, filename)
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+            plt.close()
+
+            if return_spec:
+                return mel_spec
+
+        # Generate spectrograms for each audio file
+        mel_spec_gt = generate_whisper_spectrogram(
+            audio_gt,
+            'Ground Truth Spectrogram',
+            'ground_truth_spectrogram.png',
+            return_spec=True
+        )
+
+        if audio_target is not None:
+            generate_whisper_spectrogram(
+                audio_target,
+                'Target Spectrogram',
+                'target_spectrogram.png'
+            )
+
+        mel_spec_mixed = generate_whisper_spectrogram(
+            audio_best_mixed,
+            'Best Mixed Spectrogram',
+            'best_mixed_spectrogram.png',
+            return_spec=True
+        )
+
+        # Generate difference spectrogram (what changed)
+        # Spectrograms should already be same shape due to pad_or_trim
+        mel_spec_diff = mel_spec_mixed - mel_spec_gt
+
+        # Plot difference with diverging colormap
+        plt.figure(figsize=(10, 4))
+
+        # Calculate symmetric color limits for proper diverging colormap
+        vmax = np.max(np.abs(mel_spec_diff))
+        vmin = -vmax
+
+        librosa.display.specshow(
+            mel_spec_diff,
+            sr=16000,
+            hop_length=160,
+            x_axis='time',
+            y_axis='mel',
+            cmap='RdBu_r',  # Red = increase, Blue = decrease
+            vmin=vmin,
+            vmax=vmax
+        )
+        plt.colorbar(format='%+2.0f', label='Log Magnitude Difference (Mixed - GT)')
+        plt.title('Difference Spectrogram (Adversarial Perturbations)')
+        plt.tight_layout()
+
+        save_path = os.path.join(self.folder_path, 'difference_spectrogram.png')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close()
+
+        print("[Log] Spectrograms saved successfully (using Whisper's configuration)")
 
 
     def save_fitness_history(self, fitness_history: list[np.ndarray] = None):
@@ -210,5 +323,63 @@ class RunLogger:
         print(f"[Log] Output directory initialized: {folder_path}")
         self.folder_path = folder_path
         return folder_path
+
+    def save_all_results(self, optimizer, fitness_data, generation_count, elapsed_time_total,
+                        audio_gt, audio_target, config_data):
+        """
+        Handles all logging, saving, and graph generation for a completed optimization run.
+
+        This is the main entry point for saving results. It orchestrates:
+        - Output directory setup
+        - Fitness history saving
+        - Best candidate selection
+        - Final inference
+        - Audio and spectrogram saving
+        - State saving
+        - Graph generation
+
+        Args:
+            optimizer: The optimizer with best_candidates
+            fitness_data: List of fitness arrays from each generation
+            generation_count: Number of generations completed
+            elapsed_time_total: Total time elapsed
+            audio_gt: Ground truth audio
+            audio_target: Target audio (can be None)
+            config_data: Configuration data
+
+        Returns:
+            tuple: (folder_path, text_best, best_candidate, audio_best)
+        """
+        # 1. Setup output directory
+        folder_path = self.setup_output_directory()
+
+        # 2. Save fitness history
+        self.save_fitness_history(fitness_data)
+
+        # 3. Select best candidate
+        best_candidate = self.select_best_candidate(optimizer.best_candidates, config_data.thresholds)
+
+        # 4. Run final inference
+        audio_best, text_best, audio_embedding_best = self.run_final_inference(best_candidate)
+
+        # 5. Save audio files
+        self.save_audios(audio_gt, audio_target, audio_best)
+
+        # 6. Save spectrograms
+        self.save_spectrograms(audio_gt, audio_target, audio_best)
+
+        # 7. Save torch state
+        self.save_torch_state(text_best, audio_embedding_best, best_candidate, config_data)
+
+        # 8. Generate graphs
+        from Trainer.GraphPlotter import GraphPlotter
+        graph_plotter = GraphPlotter(self.active_objectives, generation_count, folder_path, fitness_data)
+        graph_plotter.generate_hypervolume_graph()
+        graph_plotter.generate_pareto_population_graph()
+        graph_plotter.generate_mean_population_graph()
+        graph_plotter.generate_minimal_population_graph()
+        plt.close('all')
+
+        return folder_path, text_best, best_candidate, audio_best
 
 

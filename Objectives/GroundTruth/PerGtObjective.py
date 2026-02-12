@@ -27,9 +27,9 @@ class PerGtObjective(BaseObjective):
             language_switch='remove-flags'
         )
 
-        # Separator: space between phonemes, no word boundary marker
-        # Keeps multi-char phonemes like 'dʒ' intact as single units
-        self._separator = Separator(phone=" ", word="")
+        # Use '|' for words so phonemizer can correctly count words
+        # and silence the warning. We replace this with ' ' later.
+        self._separator = Separator(phone=" ", word="|")
 
         # Pre-compute ground truth phonemes
         self._gt_phonemes = self._batch_to_phonemes([self.text_gt])[0]
@@ -46,14 +46,22 @@ class PerGtObjective(BaseObjective):
         if not texts:
             return []
 
-        # Vectorized phonemization (much faster than looping)
-        phoneme_list = self._phonemizer.phonemize(
+        # Phonemize with '|' word separator (satisfies internal word count check)
+        raw_list = self._phonemizer.phonemize(
             texts,
             strip=True,
             separator=self._separator
         )
 
-        return [p.strip() if p else "" for p in phoneme_list]
+        # Convert to flat format: replace '|' with space for jiwer
+        clean_list = []
+        for p in raw_list:
+            if p:
+                clean_list.append(p.replace("|", " ").strip())
+            else:
+                clean_list.append("")
+
+        return clean_list
 
     @property
     def supports_batching(self) -> bool:

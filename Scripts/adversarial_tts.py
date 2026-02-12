@@ -25,7 +25,6 @@ os.chdir("..") # Since we are in Scripts Folder
 from Trainer.EnvironmentLoader import EnvironmentLoader
 from Trainer.AdversarialTrainer import AdversarialTrainer
 from Trainer.RunLogger import RunLogger
-from Trainer.GraphPlotter import GraphPlotter
 from Trainer.VectorManipulator import VectorManipulator
 from Models.styletts2 import StyleTTS2
 
@@ -110,25 +109,13 @@ def main():
 
         fitness_data, generation_count, elapsed_time_total = trainer.run_full_iteration(optimizer, config_data.num_generations, config_data.pop_size, config_data.batch_size)
 
-        # 5. Log Results
-        folder_path = logger.setup_output_directory()
-        logger.save_fitness_history(fitness_data)
+        # 5. Save all results (audios, spectrograms, graphs, etc.)
+        folder_path, text_best, best_candidate, audio_best = logger.save_all_results(
+            optimizer, fitness_data, generation_count, elapsed_time_total,
+            audio_gt, audio_target, config_data
+        )
 
-        best_candidate = logger.select_best_candidate(optimizer.best_candidates, config_data.thresholds)
-        audio_best, text_best, audio_embedding_best = logger.run_final_inference(best_candidate)
-
-        logger.save_audios(audio_gt, audio_target, audio_best)
-        logger.save_torch_state(text_best, audio_embedding_best, best_candidate, config_data)
-
-        # 6. Generate Graphs
-        graph_plotter = GraphPlotter(config_data.active_objectives, generation_count, folder_path, fitness_data)
-        graph_plotter.generate_hypervolume_graph()
-        graph_plotter.generate_pareto_population_graph()
-        graph_plotter.generate_mean_population_graph()
-        graph_plotter.generate_minimal_population_graph()
-        plt.close('all')
-
-        # 7. Write Summary to Terminal
+        # 6. Write Summary to Terminal
         write_run_summary(folder_path, text_best, best_candidate, generation_count, elapsed_time_total, config_data)
 
         print("[Log] Finished saving all results")
