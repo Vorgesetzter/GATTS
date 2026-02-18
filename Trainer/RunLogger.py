@@ -1,5 +1,7 @@
 import os
+import json
 import datetime
+import platform
 import torch
 import numpy as np
 import soundfile as sf
@@ -311,6 +313,41 @@ class RunLogger:
         torch.save(state_dict, save_path)
         print("[Log] Torch state saved as reconstruction_pack.pt")
 
+    def save_run_summary(self, text_best, candidate, config_data, generation_count, elapsed_time_total):
+        gpu_info = "CPU Only"
+        if torch.cuda.is_available():
+            vram = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
+            gpu_info = f"{torch.cuda.get_device_name(0)} ({vram:.2f} GB VRAM)"
+
+        avg_per_gen = elapsed_time_total / generation_count if generation_count > 0 else 0
+
+        summary = {
+            "attack_mode": config_data.mode.name,
+            "text_gt": config_data.text_gt,
+            "text_target": config_data.text_target,
+            "asr_transcription": text_best,
+            "objectives": [obj.name for obj in self.active_objectives],
+            "fitness_scores": dict(zip([obj.name for obj in self.active_objectives],
+                                       candidate.fitness.tolist())),
+            "best_candidate_generation": getattr(candidate, 'generation', None),
+            "generation_count": generation_count,
+            "elapsed_time_seconds": round(elapsed_time_total, 2),
+            "avg_time_per_generation": round(avg_per_gen, 2),
+            "pop_size": config_data.pop_size,
+            "size_per_phoneme": config_data.size_per_phoneme,
+            "iv_scalar": config_data.iv_scalar,
+            "subspace_optimization": config_data.subspace_optimization,
+            "thresholds": {k.name: v for k, v in config_data.thresholds.items()} if config_data.thresholds else None,
+            "hardware": gpu_info,
+            "os": f"{platform.system()} {platform.release()}",
+            "cpu": platform.processor(),
+        }
+
+        save_path = os.path.join(self.folder_path, "run_summary.json")
+        with open(save_path, "w") as f:
+            json.dump(summary, f, indent=2)
+        print("[Log] Run summary saved as run_summary.json")
+
     def setup_output_directory(self):
         """Creates the timestamped output folder and returns its path."""
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
@@ -370,7 +407,10 @@ class RunLogger:
         # 7. Save torch state
         self.save_torch_state(text_best, audio_embedding_best, best_candidate, config_data)
 
-        # 8. Generate graphs
+        # 8. Save run summary JSON
+        self.save_run_summary(text_best, best_candidate, config_data, generation_count, elapsed_time_total)
+
+        # 9. Generate graphs
         from Trainer.GraphPlotter import GraphPlotter
         graph_plotter = GraphPlotter(self.active_objectives, generation_count, folder_path, fitness_data)
         graph_plotter.generate_hypervolume_graph()
