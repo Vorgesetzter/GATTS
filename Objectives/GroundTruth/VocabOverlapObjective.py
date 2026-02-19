@@ -1,15 +1,30 @@
 import re
+import nltk
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
+from nltk.stem import WordNetLemmatizer
 from Objectives.base import BaseObjective
 from Datastructures.dataclass import ObjectiveContext
 
+nltk.download('stopwords', quiet=True)
+nltk.download('wordnet', quiet=True)
+
 STOPWORDS = set(stopwords.words('english'))
-STEMMER = PorterStemmer()
+LEMMATIZER = WordNetLemmatizer()
 
 
-def _stem_word_set(words: set[str]) -> set[str]:
-    return {STEMMER.stem(w) for w in words}
+def _lemmatize_word(word: str) -> str:
+    # Try adjective POS first (collapses -er/-est: "smoothest" → "smooth")
+    # then noun POS (collapses plurals: "bananas" → "banana").
+    # If neither changes the word, return it as-is.
+    for pos in ('a', 'v', 'n', 'r'):
+        lemma = LEMMATIZER.lemmatize(word, pos=pos)
+        if lemma != word:
+            return lemma
+    return word
+
+
+def _lemmatize_word_set(words: set[str]) -> set[str]:
+    return {_lemmatize_word(w) for w in words}
 
 
 class VocabOverlapObjective(BaseObjective):
@@ -19,23 +34,24 @@ class VocabOverlapObjective(BaseObjective):
     Pre-processing pipeline (applied to both GT and ASR):
       1. Lowercase + strip punctuation
       2. Remove stopwords (function words that appear regardless of distortion)
-      3. Porter-stem each word so morphological variants count as the same token
-         e.g. "bananas" == "banana", "smoothed" == "smooth", "sliding" == "slide"
+      3. WordNet-lemmatize: try adjective POS then noun POS to normalize
+         degree variants ("smoothest" → "smooth") and plurals ("bananas" → "banana")
+         while leaving verb tense ("slid" vs "sliding") as distinct tokens.
 
-    Formula: Intersection(stem(GT_content), stem(ASR_content)) / len(stem(GT_content))
+    Formula: Intersection(lemma(GT_content), lemma(ASR_content)) / len(lemma(GT_content))
 
     Range:
-        0.0 = SUCCESS (No original content word stems found in ASR output)
-        1.0 = FAILURE (All original content word stems found)
+        0.0 = SUCCESS (No original content word lemmas found in ASR output)
+        1.0 = FAILURE (All original content word lemmas found)
     """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Pre-compute stemmed Ground Truth content word set
+        # Pre-compute lemmatized Ground Truth content word set
         clean_gt = re.sub(r'[^\w\s]', '', self.text_gt.lower())
         content_words_gt = set(clean_gt.split()) - STOPWORDS
-        self.gt_words_set = _stem_word_set(content_words_gt)
+        self.gt_words_set = _lemmatize_word_set(content_words_gt)
 
     @property
     def supports_batching(self) -> bool:
@@ -56,15 +72,15 @@ class VocabOverlapObjective(BaseObjective):
                 scores.append(0.0)
                 continue
 
-            # 2. Clean and stem ASR text
+            # 2. Clean and lemmatize ASR text
             clean_asr = re.sub(r'[^\w\s]', '', asr_text.lower())
             content_words_asr = set(clean_asr.split()) - STOPWORDS
-            asr_words_set = _stem_word_set(content_words_asr)
+            asr_words_set = _lemmatize_word_set(content_words_asr)
 
-            # 3. Calculate Intersection on stemmed sets
+            # 3. Intersection on lemmatized sets
             intersection = self.gt_words_set.intersection(asr_words_set)
 
-            # 4. Recall: how many GT stems survived in the ASR output
+            # 4. Recall: how many GT lemmas survived in the ASR output
             ratio = len(intersection) / len(self.gt_words_set)
 
             scores.append(min(ratio, 1.0))
