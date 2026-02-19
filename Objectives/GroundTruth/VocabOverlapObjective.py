@@ -1,32 +1,41 @@
 import re
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 from Objectives.base import BaseObjective
 from Datastructures.dataclass import ObjectiveContext
 
 STOPWORDS = set(stopwords.words('english'))
+STEMMER = PorterStemmer()
+
+
+def _stem_word_set(words: set[str]) -> set[str]:
+    return {STEMMER.stem(w) for w in words}
 
 
 class VocabOverlapObjective(BaseObjective):
     """
     Calculates the percentage of Ground Truth content words that 'survived' in the ASR output.
-    Stopwords (e.g. "the", "on", "a") are excluded from both GT and ASR sets before comparison,
-    since they appear in almost any transcription regardless of distortion and carry no semantic content.
-    This is immune to 'padding' cheats (adding 100 random words to dilute the score).
 
-    Formula: Intersection(GT_content, ASR_content) / len(GT_content)
+    Pre-processing pipeline (applied to both GT and ASR):
+      1. Lowercase + strip punctuation
+      2. Remove stopwords (function words that appear regardless of distortion)
+      3. Porter-stem each word so morphological variants count as the same token
+         e.g. "bananas" == "banana", "smoothed" == "smooth", "sliding" == "slide"
+
+    Formula: Intersection(stem(GT_content), stem(ASR_content)) / len(stem(GT_content))
 
     Range:
-        0.0 = SUCCESS (No original content words found)
-        1.0 = FAILURE (All original content words found)
+        0.0 = SUCCESS (No original content word stems found in ASR output)
+        1.0 = FAILURE (All original content word stems found)
     """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # 1. Pre-compute Ground Truth Content Word Set
-        # Remove punctuation and stopwords so only semantically meaningful words remain
+        # Pre-compute stemmed Ground Truth content word set
         clean_gt = re.sub(r'[^\w\s]', '', self.text_gt.lower())
-        self.gt_words_set = set(clean_gt.split()) - STOPWORDS
+        content_words_gt = set(clean_gt.split()) - STOPWORDS
+        self.gt_words_set = _stem_word_set(content_words_gt)
 
     @property
     def supports_batching(self) -> bool:
@@ -47,18 +56,17 @@ class VocabOverlapObjective(BaseObjective):
                 scores.append(0.0)
                 continue
 
-            # 2. Clean ASR Text
+            # 2. Clean and stem ASR text
             clean_asr = re.sub(r'[^\w\s]', '', asr_text.lower())
-            asr_words_set = set(clean_asr.split()) - STOPWORDS
+            content_words_asr = set(clean_asr.split()) - STOPWORDS
+            asr_words_set = _stem_word_set(content_words_asr)
 
-            # 3. Calculate Intersection (Shared Words)
+            # 3. Calculate Intersection on stemmed sets
             intersection = self.gt_words_set.intersection(asr_words_set)
 
-            # 4. Calculate Recall (Shared / GT_Length)
-            # This ignores how long the ASR text is (immune to dilution).
+            # 4. Recall: how many GT stems survived in the ASR output
             ratio = len(intersection) / len(self.gt_words_set)
 
-            # Clamp just in case, though it shouldn't exceed 1.0 mathematically
             scores.append(min(ratio, 1.0))
 
         return scores
