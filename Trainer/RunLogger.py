@@ -237,10 +237,12 @@ class RunLogger:
                 col_max = working_f[:, i].max()
                 working_f[:, i] /= col_max if col_max > 0 else 1.0
 
-        # Step 3: Pick the candidate closest to the origin.
+        # Step 3: Pick the candidate closest to the origin using the L3 norm.
+        # L3 penalises large coordinates more than L2, rewarding both smallness and
+        # balance: (0.3, 0.3) beats (0.1, 0.9) because 0.3³+0.3³ < 0.1³+0.9³.
         # No [min,max] re-normalisation here — that step would be distorted by
         # extreme Pareto corners (e.g. IV≈0 solutions) and undo the threshold scaling.
-        distances = np.linalg.norm(working_f, axis=1)
+        distances = np.linalg.norm(working_f, ord=3, axis=1)
         best_local_idx = np.argmin(distances)
         selected = candidates[indices[best_local_idx]]
         print(f"[Log] Selected Candidate Fitness: {selected.fitness.tolist()}")
