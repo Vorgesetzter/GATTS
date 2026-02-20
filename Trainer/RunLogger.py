@@ -264,8 +264,12 @@ class RunLogger:
         else:
             asr_model = self.asr_model
 
-        # 2. Now call transcribe on the unwrapped model (keep batch dim for consistency with training)
-        asr_texts, _ = asr_model.inference(audio_best)
+        # Pad to the same batch size used during optimization so cuBLAS selects
+        # the same GEMM kernel path → transcription is deterministically consistent
+        # with the fitness score stored from the optimization-time Whisper call.
+        batch_size = self.vector_manipulator.config_data.batch_size
+        audio_padded = audio_best.expand(batch_size, -1).contiguous()
+        asr_texts, _ = asr_model.inference(audio_padded)
         asr_text = asr_texts[0] if isinstance(asr_texts, list) else asr_texts
 
         return audio_best, asr_text, audio_embedding_data
