@@ -14,7 +14,7 @@ class Whisper:
         # batch_size=1 at final inference). Without this, borderline adversarial audio
         # can produce different transcriptions depending on the CUDA tiling strategy.
         prev_deterministic = torch.are_deterministic_algorithms_enabled()
-        torch.use_deterministic_algorithms(True, warn_only=True)
+        torch.use_deterministic_algorithms(True, warn_only=False)
 
         try:
             # 2. Prepare audio tensors (single conversion from numpy)
