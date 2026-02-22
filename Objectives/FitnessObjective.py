@@ -26,7 +26,7 @@ from Objectives.GroundTruth.PerGtObjective import PerGtObjective
 from Objectives.GroundTruth.SbertGtObjective import SbertGtObjective
 from Objectives.GroundTruth.TextEmbGtObjective import TextEmbGtObjective
 from Objectives.GroundTruth.Wav2VecSimilarObjective import Wav2VecSimilarObjective
-from Objectives.GroundTruth.VocabOverlapObjective import VocabOverlapObjective
+from Objectives.GroundTruth.SetOverlapObjective import SetOverlapObjective
 from Objectives.GroundTruth.WhisperProbGtObjective import WhisperProbGtObjective
 
 class FitnessObjective(Enum):
@@ -53,7 +53,7 @@ class FitnessObjective(Enum):
     PER_GT = PerGtObjective
     SBERT_GT = SbertGtObjective
     TEXT_EMB_GT = TextEmbGtObjective
-    SET_OVERLAP = VocabOverlapObjective
+    SET_OVERLAP = SetOverlapObjective
     WHISPER_PROB_GT = WhisperProbGtObjective
 
     # ==== Optimize Audio Similarity ====

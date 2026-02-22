@@ -4,7 +4,7 @@ from .PerGtObjective import PerGtObjective
 from .SbertGtObjective import SbertGtObjective
 from .TextEmbGtObjective import TextEmbGtObjective
 from .Wav2VecSimilarObjective import Wav2VecSimilarObjective
-from .VocabOverlapObjective import VocabOverlapObjective
+from .SetOverlapObjective import SetOverlapObjective
 from .WhisperProbGtObjective import WhisperProbGtObjective
 
 __all__ = [
@@ -14,6 +14,6 @@ __all__ = [
     "SbertGtObjective",
     "TextEmbGtObjective",
     "Wav2VecSimilarObjective",
-    "VocabOverlapObjective",
+    "SetOverlapObjective",
     "WhisperProbGtObjective",
 ]
