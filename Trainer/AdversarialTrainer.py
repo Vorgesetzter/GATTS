@@ -116,6 +116,7 @@ class AdversarialTrainer:
 
         except KeyboardInterrupt:
             print(f"\n[!] Manual Stop triggered at Generation {gen + 1}. Saving results so far...")
+            raise
 
         # Clean up
         torch.cuda.empty_cache()
