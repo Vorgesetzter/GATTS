@@ -4,6 +4,7 @@ from enum import Enum
 from Objectives.Naturalness.UtmosObjective import UtmosObjective
 from Objectives.Naturalness.PPLObjective import PPLObjective
 from Objectives.Naturalness.PESQObjective import PesqObjective
+from Objectives.Naturalness.VisqolObjective import VisqolObjective
 
 # InterpolationVector objectives
 from Objectives.InterpolationVector.L1Objective import L1Objective
@@ -34,6 +35,7 @@ class FitnessObjective(Enum):
     UTMOS = UtmosObjective
     PPL = PPLObjective
     PESQ = PesqObjective
+    VISQOL = VisqolObjective
 
     # ==== Interpolation Vector Restrictions ====
     L1 = L1Objective
