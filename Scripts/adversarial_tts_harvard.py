@@ -197,6 +197,17 @@ def main():
 
     run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     print(f"Run timestamp: {run_timestamp}")
+    print(f"{'='*60}")
+    print(f"  mode:               {args.mode}")
+    print(f"  sentences:          {args.harvard_sentences_start} → {args.harvard_sentences_end}")
+    print(f"  runs per sentence:  {args.loop_count}")
+    print(f"  generations:        {args.num_generations}")
+    print(f"  pop_size:           {args.pop_size}")
+    print(f"  batch_size:         {args.batch_size}")
+    print(f"  objectives:         {args.objectives}")
+    print(f"  iv_scalar:          {args.iv_scalar}")
+    print(f"  size_per_phoneme:   {args.size_per_phoneme}")
+    print(f"{'='*60}")
 
     all_summaries = []
 
