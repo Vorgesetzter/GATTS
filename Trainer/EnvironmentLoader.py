@@ -182,6 +182,8 @@ class EnvironmentLoader:
         """Generate audio data for ground-truth and target texts."""
         noise = torch.randn(1, 1, 256).to(self.device)
 
+        audio_embedding_data_gt = tts.extract_embeddings(tts.preprocess_text(text_gt), noise)
+
         if mode is AttackMode.TARGETED:
             tokens_gt, tokens_target = add_numbers_pattern(
                 tts.preprocess_text(text_gt),
@@ -190,20 +192,34 @@ class EnvironmentLoader:
             )
             audio_embedding_data_gt = tts.extract_embeddings(tokens_gt, noise)
             audio_embedding_data_target = tts.extract_embeddings(tokens_target, noise)
-        else:
-            audio_embedding_data_gt = tts.extract_embeddings(tts.preprocess_text(text_gt), noise)
-
-            # Random normalized embeddings for untargeted modes
-            h_bert_target = generate_similar_noise(audio_embedding_data_gt.h_bert)
-            h_text_target = generate_similar_noise(audio_embedding_data_gt.h_text)
-            style_ac_target = generate_similar_noise(audio_embedding_data_gt.style_vector_acoustic)
-            style_pro_target = generate_similar_noise(audio_embedding_data_gt.style_vector_prosodic)
-
+        elif mode is AttackMode.ZERO_UNTARGETED:
             audio_embedding_data_target = AudioEmbeddingData(
                 audio_embedding_data_gt.input_length,
                 audio_embedding_data_gt.text_mask,
-                h_bert_target, h_text_target,
-                style_ac_target, style_pro_target
+                torch.zeros_like(audio_embedding_data_gt.h_bert),
+                torch.zeros_like(audio_embedding_data_gt.h_text),
+                torch.zeros_like(audio_embedding_data_gt.style_vector_acoustic),
+                torch.zeros_like(audio_embedding_data_gt.style_vector_prosodic),
+            )
+
+        elif mode is AttackMode.NEGATION_UNTARGETED:
+            audio_embedding_data_target = AudioEmbeddingData(
+                audio_embedding_data_gt.input_length,
+                audio_embedding_data_gt.text_mask,
+                -audio_embedding_data_gt.h_bert,
+                -audio_embedding_data_gt.h_text,
+                -audio_embedding_data_gt.style_vector_acoustic,
+                -audio_embedding_data_gt.style_vector_prosodic,
+            )
+
+        else:
+            audio_embedding_data_target = AudioEmbeddingData(
+                audio_embedding_data_gt.input_length,
+                audio_embedding_data_gt.text_mask,
+                generate_similar_noise(audio_embedding_data_gt.h_bert),
+                generate_similar_noise(audio_embedding_data_gt.h_text),
+                generate_similar_noise(audio_embedding_data_gt.style_vector_acoustic),
+                generate_similar_noise(audio_embedding_data_gt.style_vector_prosodic)
             )
 
         # Run inference for ground-truth and target
