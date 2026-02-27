@@ -219,7 +219,7 @@ class EnvironmentLoader:
             best_embedding = None
             best_rms = -1.0
 
-            for attempt in range(10):
+            for attempt in range(20):
                 candidate_embedding = AudioEmbeddingData(
                     audio_embedding_data_gt.input_length,
                     audio_embedding_data_gt.text_mask,
