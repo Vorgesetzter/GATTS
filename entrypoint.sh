@@ -6,6 +6,7 @@ REMAINING_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --script) SCRIPT="$2"; shift 2 ;;
+        --script=*) SCRIPT="${1#--script=}"; shift ;;
         *) REMAINING_ARGS+=("$1"); shift ;;
     esac
 done
