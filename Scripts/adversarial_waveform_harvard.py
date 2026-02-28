@@ -1,8 +1,11 @@
 """
-Adversarial TTS — Harvard Sentences Experiment (Vertex AI Custom Job entry point)
+Adversarial Waveform — Harvard Sentences Experiment (Vertex AI Custom Job entry point)
+
+Waveform-space NSGA-II baseline: perturbs the raw audio waveform with additive noise
+instead of manipulating TTS embeddings.
 
 Usage:
-    python Scripts/adversarial_tts_harvard.py [args]
+    python Scripts/adversarial_waveform_harvard.py [args]
 """
 
 import os
@@ -23,9 +26,8 @@ from google.cloud import storage
 
 from Datastructures.dataclass import ModelData
 from Trainer.EnvironmentLoader import EnvironmentLoader
-from Trainer.AdversarialTrainer import AdversarialTrainer
+from Trainer.WaveformAdversarialTrainer import WaveformAdversarialTrainer
 from Trainer.RunLogger import RunLogger
-from Trainer.VectorManipulator import VectorManipulator
 from Optimizer.pymoo_optimizer import PymooOptimizer
 from pymoo.algorithms.moo.nsga2 import NSGA2
 
@@ -167,9 +169,7 @@ def initialize_parser():
     parser.add_argument("--num_generations", type=int, default=100)
     parser.add_argument("--pop_size", type=int, default=200)
     parser.add_argument("--batch_size", type=int, default=100)
-    parser.add_argument("--iv_scalar", type=float, default=0.5)
-    parser.add_argument("--size_per_phoneme", type=int, default=1)
-    parser.add_argument("--subspace_optimization", action="store_true")
+    parser.add_argument("--noise_scale", type=float, default=0.05)
     parser.add_argument("--mode", type=str, default="TARGETED")
     parser.add_argument("--target_text", type=str, default="")
     parser.add_argument("--objectives", type=str, default="PESQ=0.2, SET_OVERLAP=0.5")
@@ -205,8 +205,7 @@ def main():
     print(f"  pop_size:           {args.pop_size}")
     print(f"  batch_size:         {args.batch_size}")
     print(f"  objectives:         {args.objectives}")
-    print(f"  iv_scalar:          {args.iv_scalar}")
-    print(f"  size_per_phoneme:   {args.size_per_phoneme}")
+    print(f"  noise_scale:        {args.noise_scale}")
     print(f"{'='*60}")
 
     all_summaries = []
@@ -230,11 +229,11 @@ def main():
                     loop_count=1,
                     num_generations=args.num_generations,
                     pop_size=args.pop_size,
-                    iv_scalar=args.iv_scalar,
-                    size_per_phoneme=args.size_per_phoneme,
+                    iv_scalar=0.0,
+                    size_per_phoneme=1,
                     batch_size=args.batch_size,
                     notify=False,
-                    subspace_optimization=args.subspace_optimization,
+                    subspace_optimization=False,
                     mode=args.mode,
                     objectives=args.objectives,
                 )
@@ -253,21 +252,20 @@ def main():
                     audio_gt=audio_gt,
                 )
 
-                vector_manipulator = VectorManipulator(audio_embedding_gt, audio_embedding_target.h_text, config_data)
-                trainer = AdversarialTrainer(
-                    tts_model, asr_model, config_data.thresholds, objectives_dict, vector_manipulator, device
+                trainer = WaveformAdversarialTrainer(
+                    tts_model, asr_model, config_data.thresholds, objectives_dict, audio_gt, device
                 )
                 logger = RunLogger(
-                    config_data.active_objectives, tts_model, asr_model, vector_manipulator, device
+                    config_data.active_objectives, tts_model, asr_model, None, device
                 )
 
                 optimizer = PymooOptimizer(
-                    bounds=(0, 1),
+                    bounds=(-args.noise_scale, args.noise_scale),
                     algorithm=NSGA2,
                     algo_params={"pop_size": args.pop_size},
                     num_objectives=len(config_data.active_objectives),
                     solution_shape=(
-                        int(audio_embedding_gt.input_length.detach().cpu().item()), args.size_per_phoneme,
+                        audio_gt.shape[-1],
                     ),
                 )
 

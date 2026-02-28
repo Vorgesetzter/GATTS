@@ -1,8 +1,19 @@
 """
-Adversarial TTS — Harvard Sentences Experiment (Vertex AI Custom Job entry point)
+Adversarial Harvard Sentences — Combined TTS Embedding + Waveform Experiment
+
+For each sentence/run:
+  1. Synthesizes audio_gt once via StyleTTS2
+  2. Runs the TTS embedding-space NSGA-II method on that audio
+  3. Runs the waveform-space NSGA-II baseline on the SAME audio_gt
+
+Both methods therefore start from an identical waveform, ensuring a fair comparison.
+
+Results are saved separately:
+  outputs/results/tts/{timestamp}/sentence_XXX/run_N/
+  outputs/results/waveform/{timestamp}/sentence_XXX/run_N/
 
 Usage:
-    python Scripts/adversarial_tts_harvard.py [args]
+    python Scripts/adversarial_harvard.py [args]
 """
 
 import os
@@ -24,8 +35,9 @@ from google.cloud import storage
 from Datastructures.dataclass import ModelData
 from Trainer.EnvironmentLoader import EnvironmentLoader
 from Trainer.AdversarialTrainer import AdversarialTrainer
-from Trainer.RunLogger import RunLogger
+from Trainer.WaveformAdversarialTrainer import WaveformAdversarialTrainer
 from Trainer.VectorManipulator import VectorManipulator
+from Trainer.RunLogger import RunLogger
 from Optimizer.pymoo_optimizer import PymooOptimizer
 from pymoo.algorithms.moo.nsga2 import NSGA2
 
@@ -167,9 +179,12 @@ def initialize_parser():
     parser.add_argument("--num_generations", type=int, default=100)
     parser.add_argument("--pop_size", type=int, default=200)
     parser.add_argument("--batch_size", type=int, default=100)
+    # TTS embedding method
     parser.add_argument("--iv_scalar", type=float, default=0.5)
     parser.add_argument("--size_per_phoneme", type=int, default=1)
     parser.add_argument("--subspace_optimization", action="store_true")
+    # Waveform method
+    parser.add_argument("--noise_scale", type=float, default=0.05)
     parser.add_argument("--mode", type=str, default="TARGETED")
     parser.add_argument("--target_text", type=str, default="")
     parser.add_argument("--objectives", type=str, default="PESQ=0.2, SET_OVERLAP=0.5")
@@ -207,9 +222,11 @@ def main():
     print(f"  objectives:         {args.objectives}")
     print(f"  iv_scalar:          {args.iv_scalar}")
     print(f"  size_per_phoneme:   {args.size_per_phoneme}")
+    print(f"  noise_scale:        {args.noise_scale}")
     print(f"{'='*60}")
 
-    all_summaries = []
+    tts_summaries = []
+    waveform_summaries = []
 
     try:
         for sentence_id in range(args.harvard_sentences_start, args.harvard_sentences_end + 1):
@@ -240,11 +257,15 @@ def main():
                 )
                 config_data = loader.load_configuration(run_args)
 
+                # Synthesize audio_gt ONCE — shared by both methods for identical starting point
                 audio_gt, audio_target, audio_embedding_gt, audio_embedding_target = loader.generate_audio_data(
                     config_data.mode, config_data.text_gt, config_data.text_target, tts_model
                 )
 
-                objectives_dict = loader.initialize_objectives(
+                # ── TTS Embedding Method ──────────────────────────────────
+                print(f"\n  [Run {run_id + 1}] TTS Embedding Method")
+
+                tts_objectives = loader.initialize_objectives(
                     active_objectives=config_data.active_objectives,
                     model_data=ModelData(tts_model=tts_model, asr_model=asr_model),
                     text_gt=config_data.text_gt,
@@ -253,31 +274,35 @@ def main():
                     audio_gt=audio_gt,
                 )
 
-                vector_manipulator = VectorManipulator(audio_embedding_gt, audio_embedding_target.h_text, config_data)
-                trainer = AdversarialTrainer(
-                    tts_model, asr_model, config_data.thresholds, objectives_dict, vector_manipulator, device
-                )
-                logger = RunLogger(
-                    config_data.active_objectives, tts_model, asr_model, vector_manipulator, device
+                vector_manipulator = VectorManipulator(
+                    audio_embedding_gt=audio_embedding_gt,
+                    h_text_target=audio_embedding_target.h_text,
+                    config_data=config_data,
                 )
 
-                optimizer = PymooOptimizer(
+                tts_trainer = AdversarialTrainer(
+                    tts_model, asr_model, config_data.thresholds, tts_objectives, vector_manipulator, device
+                )
+                tts_logger = RunLogger(
+                    config_data.active_objectives, tts_model, asr_model, vector_manipulator, device
+                )
+                tts_optimizer = PymooOptimizer(
                     bounds=(0, 1),
                     algorithm=NSGA2,
                     algo_params={"pop_size": args.pop_size},
                     num_objectives=len(config_data.active_objectives),
-                    solution_shape=(
-                        int(audio_embedding_gt.input_length.detach().cpu().item()), args.size_per_phoneme,
-                    ),
+                    solution_shape=(audio_gt.shape[-1],),
                 )
 
                 fitness_data, archive_data, generation_count, elapsed_time_total, interrupted = \
-                    trainer.run_full_iteration(optimizer, args.num_generations, args.pop_size, args.batch_size)
+                    tts_trainer.run_full_iteration(tts_optimizer, args.num_generations, args.pop_size, args.batch_size)
 
                 if fitness_data:
-                    folder_path = logger.setup_multi_sentence_directory(sentence_id, run_id, run_timestamp)
-                    summary = logger.save_results_run(
-                        optimizer=optimizer,
+                    folder_path = tts_logger.setup_multi_sentence_directory(
+                        sentence_id, run_id, run_timestamp, base_path="outputs/results/tts"
+                    )
+                    summary = tts_logger.save_results_run(
+                        optimizer=tts_optimizer,
                         fitness_data=fitness_data,
                         archive_data=archive_data,
                         generation_count=generation_count,
@@ -293,7 +318,65 @@ def main():
                         save_spectrograms=args.save_spectrograms,
                         save_graphs=args.save_graphs,
                     )
-                    all_summaries.append(summary)
+                    tts_summaries.append(summary)
+                    upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)
+
+                torch.cuda.empty_cache()
+
+                if interrupted:
+                    raise KeyboardInterrupt
+
+                # ── Waveform Method ───────────────────────────────────────
+                print(f"\n  [Run {run_id + 1}] Waveform Method")
+
+                waveform_objectives = loader.initialize_objectives(
+                    active_objectives=config_data.active_objectives,
+                    model_data=ModelData(tts_model=tts_model, asr_model=asr_model),
+                    text_gt=config_data.text_gt,
+                    text_target=config_data.text_target,
+                    mode=config_data.mode,
+                    audio_gt=audio_gt,
+                )
+
+                waveform_trainer = WaveformAdversarialTrainer(
+                    tts_model, asr_model, config_data.thresholds, waveform_objectives, audio_gt, device
+                )
+                waveform_logger = RunLogger(
+                    config_data.active_objectives, tts_model, asr_model, None, device
+                )
+                waveform_optimizer = PymooOptimizer(
+                    bounds=(-args.noise_scale, args.noise_scale),
+                    algorithm=NSGA2,
+                    algo_params={"pop_size": args.pop_size},
+                    num_objectives=len(config_data.active_objectives),
+                    solution_shape=(audio_gt.shape[-1],),
+                )
+
+                fitness_data, archive_data, generation_count, elapsed_time_total, interrupted = \
+                    waveform_trainer.run_full_iteration(waveform_optimizer, args.num_generations, args.pop_size, args.batch_size)
+
+                if fitness_data:
+                    folder_path = waveform_logger.setup_multi_sentence_directory(
+                        sentence_id, run_id, run_timestamp, base_path="outputs/results/waveform"
+                    )
+                    summary = waveform_logger.save_results_run(
+                        optimizer=waveform_optimizer,
+                        fitness_data=fitness_data,
+                        archive_data=archive_data,
+                        generation_count=generation_count,
+                        elapsed_time_total=elapsed_time_total,
+                        audio_gt=audio_gt,
+                        audio_target=audio_target,
+                        config_data=config_data,
+                        folder_path=folder_path,
+                        sentence_id=sentence_id,
+                        run_id=run_id,
+                        run_timestamp=run_timestamp,
+                        num_generations=args.num_generations,
+                        save_spectrograms=args.save_spectrograms,
+                        save_graphs=args.save_graphs,
+                    )
+                    waveform_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)
 
                 torch.cuda.empty_cache()
@@ -305,7 +388,8 @@ def main():
         print("\n[!] Experiment stopped early. All completed runs have been saved.")
 
     finally:
-        RunLogger.aggregate_results(all_summaries, output_dir=os.path.join("outputs", "results", run_timestamp))
+        RunLogger.aggregate_results(tts_summaries, output_dir=os.path.join("outputs", "results", "tts", run_timestamp))
+        RunLogger.aggregate_results(waveform_summaries, output_dir=os.path.join("outputs", "results", "waveform", run_timestamp))
         upload_folder_to_gcs("outputs", args.gcs_bucket, args.gcs_prefix)
         print("\n[Done]")
 
