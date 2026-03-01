@@ -53,9 +53,13 @@ class AdversarialTrainer:
                 print(f"[ERROR] {obj_enum.name} evaluation failed: {e}")
         return scores
 
-    def run_full_iteration(self, optimizer, num_generations, pop_size, batch_size) -> tuple[list[np.ndarray], list[np.ndarray], int, float, bool]:
+    def run_full_iteration(self, optimizer, num_generations, pop_size, batch_size, min_generations: int = 0) -> tuple[list[np.ndarray], list[np.ndarray], int, float, bool]:
         """
         Run a single optimization cycle through all generations.
+
+        Args:
+            min_generations: Minimum number of generations to run before early stopping
+                             is allowed, even if thresholds are met earlier.
 
         Returns:
             tuple: (fitness_history, archive_history, generations_run, total_inference_time, interrupted)
@@ -71,7 +75,7 @@ class AdversarialTrainer:
         gen = -1
         elapsed_time_total = 0.0
         interrupted = False
-        generation_found = None
+        generation_found = None  # First generation where all thresholds were met
 
         print("Press Ctrl+C to stop training early and save results.")
 
@@ -105,9 +109,12 @@ class AdversarialTrainer:
 
                     pbar.write(f"[Gen {gen + 1}] {' | '.join(stats_parts)}")
 
-                    if stop_optimization:
+                    if stop_optimization and generation_found is None:
                         generation_found = gen + 1
-                        pbar.write(f"\n[!] Early Stopping at Generation {gen + 1} (Thresholds met).")
+                        pbar.write(f"[!] Thresholds first met at Generation {gen + 1}.")
+
+                    if generation_found is not None and (gen + 1) >= min_generations:
+                        pbar.write(f"[!] Early Stopping at Generation {gen + 1}.")
                         break
 
         except KeyboardInterrupt:

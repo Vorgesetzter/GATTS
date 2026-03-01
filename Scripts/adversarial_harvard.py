@@ -185,6 +185,7 @@ def initialize_parser():
     parser.add_argument("--subspace_optimization", action="store_true")
     parser.add_argument("--num_rms_candidates", type=int, default=1)
     parser.add_argument("--seed_target", action="store_true", default=False)
+    parser.add_argument("--min_generations", type=int, default=0)
     # Waveform method
     parser.add_argument("--noise_scale", type=float, default=0.05)
     parser.add_argument("--mode", type=str, default="TARGETED")
@@ -219,6 +220,7 @@ def main():
     print(f"  sentences:          {args.harvard_sentences_start} → {args.harvard_sentences_end}")
     print(f"  runs per sentence:  {args.loop_count}")
     print(f"  generations:        {args.num_generations}")
+    print(f"  min_generations:    {args.min_generations}")
     print(f"  pop_size:           {args.pop_size}")
     print(f"  batch_size:         {args.batch_size}")
     print(f"  objectives:         {args.objectives}")
@@ -309,7 +311,7 @@ def main():
                     tts_optimizer.update_problem(tts_solution_shape, sampling=initial_pop)
 
                 fitness_data, archive_data, generation_count, elapsed_time_total, interrupted, generation_found = \
-                    tts_trainer.run_full_iteration(tts_optimizer, args.num_generations, args.pop_size, args.batch_size)
+                    tts_trainer.run_full_iteration(tts_optimizer, args.num_generations, args.pop_size, args.batch_size, min_generations=args.min_generations)
 
                 if fitness_data:
                     folder_path = tts_logger.setup_multi_sentence_directory(
@@ -333,6 +335,7 @@ def main():
                         save_graphs=args.save_graphs,
                         generation_found=generation_found,
                         seed_target=args.seed_target,
+                        min_generations=args.min_generations,
                     )
                     tts_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)
@@ -371,7 +374,7 @@ def main():
                 )
 
                 fitness_data, archive_data, generation_count, elapsed_time_total, interrupted, generation_found = \
-                    waveform_trainer.run_full_iteration(waveform_optimizer, args.num_generations, args.pop_size, args.batch_size)
+                    waveform_trainer.run_full_iteration(waveform_optimizer, args.num_generations, args.pop_size, args.batch_size, min_generations=args.min_generations)
 
                 if fitness_data:
                     folder_path = waveform_logger.setup_multi_sentence_directory(
@@ -395,6 +398,7 @@ def main():
                         save_graphs=args.save_graphs,
                         generation_found=generation_found,
                         seed_target=False,
+                        min_generations=args.min_generations,
                     )
                     waveform_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)

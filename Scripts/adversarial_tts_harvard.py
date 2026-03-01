@@ -172,6 +172,7 @@ def initialize_parser():
     parser.add_argument("--subspace_optimization", action="store_true")
     parser.add_argument("--num_rms_candidates", type=int, default=1)
     parser.add_argument("--seed_target", action="store_true", default=False)
+    parser.add_argument("--min_generations", type=int, default=0)
     parser.add_argument("--mode", type=str, default="TARGETED")
     parser.add_argument("--target_text", type=str, default="")
     parser.add_argument("--objectives", type=str, default="PESQ=0.2, SET_OVERLAP=0.5")
@@ -204,6 +205,7 @@ def main():
     print(f"  sentences:          {args.harvard_sentences_start} → {args.harvard_sentences_end}")
     print(f"  runs per sentence:  {args.loop_count}")
     print(f"  generations:        {args.num_generations}")
+    print(f"  min_generations:    {args.min_generations}")
     print(f"  pop_size:           {args.pop_size}")
     print(f"  batch_size:         {args.batch_size}")
     print(f"  objectives:         {args.objectives}")
@@ -284,7 +286,7 @@ def main():
                     optimizer.update_problem(solution_shape, sampling=initial_pop)
 
                 fitness_data, archive_data, generation_count, elapsed_time_total, interrupted, generation_found = \
-                    trainer.run_full_iteration(optimizer, args.num_generations, args.pop_size, args.batch_size)
+                    trainer.run_full_iteration(optimizer, args.num_generations, args.pop_size, args.batch_size, min_generations=args.min_generations)
 
                 if fitness_data:
                     folder_path = logger.setup_multi_sentence_directory(sentence_id, run_id, run_timestamp)
@@ -306,6 +308,7 @@ def main():
                         save_graphs=args.save_graphs,
                         generation_found=generation_found,
                         seed_target=args.seed_target,
+                        min_generations=args.min_generations,
                     )
                     all_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)
