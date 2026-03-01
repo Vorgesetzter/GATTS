@@ -370,6 +370,7 @@ class RunLogger:
         run_timestamp: str = None,
         generation_found: int = None,
         seed_target: bool = False,
+        target_asr_text: str = "",
     ) -> dict:
         gpu_info = "CPU Only"
         if torch.cuda.is_available():
@@ -398,7 +399,7 @@ class RunLogger:
             },
             "text_data": {
                 "ground_truth_text": config_data.text_gt,
-                "target_text": config_data.text_target,
+                "target_text": config_data.text_target if config_data.mode.name == "TARGETED" else target_asr_text,
                 "asr_transcription": text_best,
             },
             "success_metrics": {
@@ -467,9 +468,17 @@ class RunLogger:
         best_candidate = self.select_best_candidate(optimizer.best_candidates, config_data.thresholds)
         audio_best, text_best = self.run_final_inference(best_candidate)
 
+        # Transcribe target audio for non-TARGETED modes (e.g. NOISE_UNTARGETED)
+        target_asr_text = ""
+        if config_data.mode.name != "TARGETED" and audio_target is not None:
+            asr_model = self.asr_model.module if isinstance(self.asr_model, torch.nn.DataParallel) else self.asr_model
+            target_audio_tensor = audio_target.detach().cpu().unsqueeze(0) if audio_target.dim() == 1 else audio_target.detach().cpu().unsqueeze(0)
+            target_asr_texts, _ = asr_model.inference(target_audio_tensor.to(self.device))
+            target_asr_text = target_asr_texts[0] if target_asr_texts else ""
+
         self.save_audios(audio_gt, audio_target, audio_best)
         self.save_fitness_history_per_generation(fitness_data, archive_data)
-        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp, generation_found=generation_found, seed_target=seed_target)
+        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp, generation_found=generation_found, seed_target=seed_target, target_asr_text=target_asr_text)
 
         if save_torch_state:
             self.save_torch_state(text_best, best_candidate, config_data)
