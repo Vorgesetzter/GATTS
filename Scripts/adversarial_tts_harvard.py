@@ -283,7 +283,7 @@ def main():
                     initial_pop[0] = 1.0  # Anchor: pure noise target → SET_OVERLAP = 0
                     optimizer.update_problem(solution_shape, sampling=initial_pop)
 
-                fitness_data, archive_data, generation_count, elapsed_time_total, interrupted = \
+                fitness_data, archive_data, generation_count, elapsed_time_total, interrupted, generation_found = \
                     trainer.run_full_iteration(optimizer, args.num_generations, args.pop_size, args.batch_size)
 
                 if fitness_data:
@@ -304,6 +304,8 @@ def main():
                         num_generations=args.num_generations,
                         save_spectrograms=args.save_spectrograms,
                         save_graphs=args.save_graphs,
+                        generation_found=generation_found,
+                        seed_target=args.seed_target,
                     )
                     all_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)

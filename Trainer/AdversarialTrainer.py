@@ -71,6 +71,7 @@ class AdversarialTrainer:
         gen = -1
         elapsed_time_total = 0.0
         interrupted = False
+        generation_found = None
 
         print("Press Ctrl+C to stop training early and save results.")
 
@@ -105,6 +106,7 @@ class AdversarialTrainer:
                     pbar.write(f"[Gen {gen + 1}] {' | '.join(stats_parts)}")
 
                     if stop_optimization:
+                        generation_found = gen + 1
                         pbar.write(f"\n[!] Early Stopping at Generation {gen + 1} (Thresholds met).")
                         break
 
@@ -114,7 +116,7 @@ class AdversarialTrainer:
 
         torch.cuda.empty_cache()
 
-        return fitness_history, archive_history, gen+1, elapsed_time_total, interrupted
+        return fitness_history, archive_history, gen+1, elapsed_time_total, interrupted, generation_found
 
     def run_one_generation(self, optimizer, pop_size, batch_size) -> tuple[list[list[float]], bool, float, list]:
 

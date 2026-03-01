@@ -308,7 +308,7 @@ def main():
                     initial_pop[0] = 1.0  # Anchor: pure noise target → SET_OVERLAP = 0
                     tts_optimizer.update_problem(tts_solution_shape, sampling=initial_pop)
 
-                fitness_data, archive_data, generation_count, elapsed_time_total, interrupted = \
+                fitness_data, archive_data, generation_count, elapsed_time_total, interrupted, generation_found = \
                     tts_trainer.run_full_iteration(tts_optimizer, args.num_generations, args.pop_size, args.batch_size)
 
                 if fitness_data:
@@ -331,6 +331,8 @@ def main():
                         num_generations=args.num_generations,
                         save_spectrograms=args.save_spectrograms,
                         save_graphs=args.save_graphs,
+                        generation_found=generation_found,
+                        seed_target=args.seed_target,
                     )
                     tts_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)
@@ -368,7 +370,7 @@ def main():
                     solution_shape=(audio_gt.shape[-1],),
                 )
 
-                fitness_data, archive_data, generation_count, elapsed_time_total, interrupted = \
+                fitness_data, archive_data, generation_count, elapsed_time_total, interrupted, generation_found = \
                     waveform_trainer.run_full_iteration(waveform_optimizer, args.num_generations, args.pop_size, args.batch_size)
 
                 if fitness_data:
@@ -391,6 +393,8 @@ def main():
                         num_generations=args.num_generations,
                         save_spectrograms=args.save_spectrograms,
                         save_graphs=args.save_graphs,
+                        generation_found=generation_found,
+                        seed_target=False,
                     )
                     waveform_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)

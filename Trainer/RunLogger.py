@@ -368,6 +368,8 @@ class RunLogger:
         sentence_id: int = None,
         run_id: int = None,
         run_timestamp: str = None,
+        generation_found: int = None,
+        seed_target: bool = False,
     ) -> dict:
         gpu_info = "CPU Only"
         if torch.cuda.is_available():
@@ -417,9 +419,11 @@ class RunLogger:
                 "size_per_phoneme": config_data.size_per_phoneme,
                 "iv_scalar": config_data.iv_scalar,
                 "subspace_optimization": config_data.subspace_optimization,
+                "num_rms_candidates": getattr(config_data, "num_rms_candidates", 1),
+                "seed_target": seed_target,
             },
             "final_solution": {
-                "generation_found": getattr(best_candidate, "generation", None),
+                "generation_found": generation_found,
                 "fitness_scores": fitness_dict,
             },
             "pareto_front": [c.fitness.tolist() for c in optimizer.best_candidates],
@@ -454,6 +458,8 @@ class RunLogger:
         save_torch_state: bool = False,
         save_spectrograms: bool = False,
         save_graphs: bool = False,
+        generation_found: int = None,
+        seed_target: bool = False,
     ) -> dict:
         os.makedirs(folder_path, exist_ok=True)
         self.folder_path = folder_path
@@ -463,7 +469,7 @@ class RunLogger:
 
         self.save_audios(audio_gt, audio_target, audio_best)
         self.save_fitness_history_per_generation(fitness_data, archive_data)
-        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp)
+        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp, generation_found=generation_found, seed_target=seed_target)
 
         if save_torch_state:
             self.save_torch_state(text_best, best_candidate, config_data)
