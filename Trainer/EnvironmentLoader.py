@@ -167,6 +167,7 @@ class EnvironmentLoader:
             thresholds=thresholds,
             subspace_optimization=args.subspace_optimization,
             random_matrix=random_matrix,
+            num_rms_candidates=getattr(args, 'num_rms_candidates', 20),
         )
 
     def load_required_models(self):
@@ -178,7 +179,7 @@ class EnvironmentLoader:
 
         return tts, asr
 
-    def generate_audio_data(self, mode: AttackMode, text_gt: str, text_target: str, tts: StyleTTS2):
+    def generate_audio_data(self, mode: AttackMode, text_gt: str, text_target: str, tts: StyleTTS2, num_rms_candidates: int = 20):
         """Generate audio data for ground-truth and target texts."""
         noise = torch.randn(1, 1, 256).to(self.device)
 
@@ -219,7 +220,7 @@ class EnvironmentLoader:
             best_embedding = None
             best_rms = -1.0
 
-            for attempt in range(20):
+            for attempt in range(num_rms_candidates):
                 candidate_embedding = AudioEmbeddingData(
                     audio_embedding_data_gt.input_length,
                     audio_embedding_data_gt.text_mask,

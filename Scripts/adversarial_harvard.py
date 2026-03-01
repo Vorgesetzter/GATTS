@@ -183,6 +183,7 @@ def initialize_parser():
     parser.add_argument("--iv_scalar", type=float, default=0.5)
     parser.add_argument("--size_per_phoneme", type=int, default=1)
     parser.add_argument("--subspace_optimization", action="store_true")
+    parser.add_argument("--num_rms_candidates", type=int, default=20)
     # Waveform method
     parser.add_argument("--noise_scale", type=float, default=0.05)
     parser.add_argument("--mode", type=str, default="TARGETED")
@@ -254,12 +255,14 @@ def main():
                     subspace_optimization=args.subspace_optimization,
                     mode=args.mode,
                     objectives=args.objectives,
+                    num_rms_candidates=args.num_rms_candidates,
                 )
                 config_data = loader.load_configuration(run_args)
 
                 # Synthesize audio_gt ONCE — shared by both methods for identical starting point
                 audio_gt, audio_target, audio_embedding_gt, audio_embedding_target = loader.generate_audio_data(
-                    config_data.mode, config_data.text_gt, config_data.text_target, tts_model
+                    config_data.mode, config_data.text_gt, config_data.text_target, tts_model,
+                    num_rms_candidates=config_data.num_rms_candidates,
                 )
 
                 # ── TTS Embedding Method ──────────────────────────────────
