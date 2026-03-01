@@ -184,6 +184,7 @@ def initialize_parser():
     parser.add_argument("--size_per_phoneme", type=int, default=1)
     parser.add_argument("--subspace_optimization", action="store_true")
     parser.add_argument("--num_rms_candidates", type=int, default=20)
+    parser.add_argument("--seed_target", action="store_true", default=False)
     # Waveform method
     parser.add_argument("--noise_scale", type=float, default=0.05)
     parser.add_argument("--mode", type=str, default="TARGETED")
@@ -289,13 +290,23 @@ def main():
                 tts_logger = RunLogger(
                     config_data.active_objectives, tts_model, asr_model, vector_manipulator, device
                 )
+                tts_solution_shape = (
+                    int(audio_embedding_gt.input_length.detach().cpu().item()), args.size_per_phoneme,
+                )
                 tts_optimizer = PymooOptimizer(
                     bounds=(0, 1),
                     algorithm=NSGA2,
                     algo_params={"pop_size": args.pop_size},
                     num_objectives=len(config_data.active_objectives),
-                    solution_shape=(audio_gt.shape[-1],),
+                    solution_shape=tts_solution_shape,
                 )
+
+                if args.seed_target:
+                    import numpy as np
+                    n_var = int(np.prod(tts_solution_shape))
+                    initial_pop = np.random.uniform(0, 1, (args.pop_size, n_var))
+                    initial_pop[0] = 1.0  # Anchor: pure noise target → SET_OVERLAP = 0
+                    tts_optimizer.update_problem(tts_solution_shape, sampling=initial_pop)
 
                 fitness_data, archive_data, generation_count, elapsed_time_total, interrupted = \
                     tts_trainer.run_full_iteration(tts_optimizer, args.num_generations, args.pop_size, args.batch_size)
