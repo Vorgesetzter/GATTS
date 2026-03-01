@@ -370,6 +370,7 @@ class RunLogger:
         run_timestamp: str = None,
         generation_found: int = None,
         seed_target: bool = False,
+        seed_gt: bool = False,
         target_asr_text: str = "",
         min_generations: int = 0,
     ) -> dict:
@@ -423,6 +424,7 @@ class RunLogger:
                 "subspace_optimization": config_data.subspace_optimization,
                 "num_rms_candidates": getattr(config_data, "num_rms_candidates", 1),
                 "seed_target": seed_target,
+                "seed_gt": seed_gt,
                 "min_generations": min_generations,
             },
             "final_solution": {
@@ -463,6 +465,7 @@ class RunLogger:
         save_graphs: bool = False,
         generation_found: int = None,
         seed_target: bool = False,
+        seed_gt: bool = False,
         min_generations: int = 0,
     ) -> dict:
         os.makedirs(folder_path, exist_ok=True)
@@ -481,7 +484,7 @@ class RunLogger:
 
         self.save_audios(audio_gt, audio_target, audio_best)
         self.save_fitness_history_per_generation(fitness_data, archive_data)
-        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp, generation_found=generation_found, seed_target=seed_target, target_asr_text=target_asr_text, min_generations=min_generations)
+        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp, generation_found=generation_found, seed_target=seed_target, seed_gt=seed_gt, target_asr_text=target_asr_text, min_generations=min_generations)
 
         if save_torch_state:
             self.save_torch_state(text_best, best_candidate, config_data)

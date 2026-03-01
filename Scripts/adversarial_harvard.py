@@ -185,6 +185,7 @@ def initialize_parser():
     parser.add_argument("--subspace_optimization", action="store_true")
     parser.add_argument("--num_rms_candidates", type=int, default=1)
     parser.add_argument("--seed_target", action="store_true", default=False)
+    parser.add_argument("--seed_gt", action="store_true", default=False)
     parser.add_argument("--min_generations", type=int, default=0)
     # Waveform method
     parser.add_argument("--noise_scale", type=float, default=0.05)
@@ -303,11 +304,14 @@ def main():
                     solution_shape=tts_solution_shape,
                 )
 
-                if args.seed_target:
+                if args.seed_target or args.seed_gt:
                     import numpy as np
                     n_var = int(np.prod(tts_solution_shape))
                     initial_pop = np.random.uniform(0, 1, (args.pop_size, n_var))
-                    initial_pop[0] = 1.0  # Anchor: pure noise target → SET_OVERLAP = 0
+                    if args.seed_target:
+                        initial_pop[0] = 1.0  # Anchor: pure noise target → SET_OVERLAP = 0
+                    if args.seed_gt:
+                        initial_pop[1] = 0.0  # Anchor: pure ground truth → PESQ ≈ 0
                     tts_optimizer.update_problem(tts_solution_shape, sampling=initial_pop)
 
                 fitness_data, archive_data, generation_count, elapsed_time_total, interrupted, generation_found = \
@@ -335,6 +339,7 @@ def main():
                         save_graphs=args.save_graphs,
                         generation_found=generation_found,
                         seed_target=args.seed_target,
+                        seed_gt=args.seed_gt,
                         min_generations=args.min_generations,
                     )
                     tts_summaries.append(summary)
