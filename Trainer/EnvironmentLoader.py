@@ -248,4 +248,7 @@ class EnvironmentLoader:
         audio_gt = tts.inference_on_embedding(audio_embedding_data_gt).flatten()
         audio_target = tts.inference_on_embedding(audio_embedding_data_target).flatten()
 
-        return audio_gt, audio_target, audio_embedding_data_gt, audio_embedding_data_target
+        gt_rms = audio_gt.pow(2).mean().sqrt().item()
+        target_rms = audio_target.pow(2).mean().sqrt().item()
+
+        return audio_gt, audio_target, audio_embedding_data_gt, audio_embedding_data_target, gt_rms, target_rms

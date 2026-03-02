@@ -246,7 +246,7 @@ def main():
                 )
                 config_data = loader.load_configuration(run_args)
 
-                audio_gt, audio_target, audio_embedding_gt, audio_embedding_target = loader.generate_audio_data(
+                audio_gt, audio_target, audio_embedding_gt, audio_embedding_target, gt_rms, target_rms = loader.generate_audio_data(
                     config_data.mode, config_data.text_gt, config_data.text_target, tts_model,
                     num_rms_candidates=config_data.num_rms_candidates,
                 )
@@ -314,6 +314,8 @@ def main():
                         seed_target=args.seed_target,
                         seed_gt=args.seed_gt,
                         min_generations=args.min_generations,
+                        gt_rms=gt_rms,
+                        target_rms=target_rms,
                     )
                     all_summaries.append(summary)
                     upload_folder_to_gcs(folder_path, args.gcs_bucket, args.gcs_prefix)

@@ -373,6 +373,8 @@ class RunLogger:
         seed_gt: bool = False,
         target_asr_text: str = "",
         min_generations: int = 0,
+        gt_rms: float = None,
+        target_rms: float = None,
     ) -> dict:
         gpu_info = "CPU Only"
         if torch.cuda.is_available():
@@ -426,6 +428,8 @@ class RunLogger:
                 "seed_target": seed_target,
                 "seed_gt": seed_gt,
                 "min_generations": min_generations,
+                "gt_rms": round(gt_rms, 6) if gt_rms is not None else None,
+                "target_rms": round(target_rms, 6) if target_rms is not None else None,
             },
             "final_solution": {
                 "generation_found": generation_found,
@@ -467,6 +471,8 @@ class RunLogger:
         seed_target: bool = False,
         seed_gt: bool = False,
         min_generations: int = 0,
+        gt_rms: float = None,
+        target_rms: float = None,
     ) -> dict:
         os.makedirs(folder_path, exist_ok=True)
         self.folder_path = folder_path
@@ -484,7 +490,7 @@ class RunLogger:
 
         self.save_audios(audio_gt, audio_target, audio_best)
         self.save_fitness_history_per_generation(fitness_data, archive_data)
-        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp, generation_found=generation_found, seed_target=seed_target, seed_gt=seed_gt, target_asr_text=target_asr_text, min_generations=min_generations)
+        summary = self.save_json_summary(text_best, best_candidate, optimizer, config_data, generation_count, elapsed_time_total, num_generations, sentence_id, run_id, run_timestamp, generation_found=generation_found, seed_target=seed_target, seed_gt=seed_gt, target_asr_text=target_asr_text, min_generations=min_generations, gt_rms=gt_rms, target_rms=target_rms)
 
         if save_torch_state:
             self.save_torch_state(text_best, best_candidate, config_data)
