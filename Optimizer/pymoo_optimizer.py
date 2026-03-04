@@ -103,7 +103,7 @@ class PymooOptimizer(Optimizer):
 
         self._shape = solution_shape
         self._n_var = int(np.prod(solution_shape))
-        self._pymoo_algo = self._algorithm(**self._params, save_history=True)
+        self._pymoo_algo = self._algorithm(**self._params, save_history=False)
 
         self._problem = Problem(
             n_var=self._n_var,
