@@ -52,6 +52,10 @@ class WaveformAdversarialTrainer(AdversarialTrainer):
                 target_audio = F.pad(target_audio, (0, T - target_audio.shape[-1]))
             else:
                 target_audio = target_audio[..., :T]
+            # Normalize target RMS to match GT so waveform interpolation is not dominated by amplitude
+            gt_rms = self.original_audio.pow(2).mean().sqrt().clamp(min=1e-8)
+            target_rms = target_audio.pow(2).mean().sqrt().clamp(min=1e-8)
+            target_audio = target_audio * (gt_rms / target_rms)
         self.target_audio = target_audio
 
     def _process_batch(self, batch_idx: int, batch_size: int, interpolation_vectors_full: torch.Tensor):
