@@ -87,6 +87,14 @@ class Optimizer(ABC):
         if M.ndim != 2:
             raise ValueError("metrics must be 2D: (n_points, n_objectives)")
 
+        # Deduplicate by fitness: identical fitness rows (e.g. PESQ saturated at 0.0)
+        # are never dominated by each other, so without this the archive grows unboundedly.
+        _, unique_idx = np.unique(M, axis=0, return_index=True)
+        unique_idx = np.sort(unique_idx)
+        M         = M[unique_idx]
+        solutions = solutions[unique_idx]
+        data      = tuple(data[i] for i in unique_idx)
+
         le = M[:, None, :] <= M[None, :, :]  # (n, n, k)
         lt = M[:, None, :] < M[None, :, :]  # (n, n, k)
         dominates = le.all(axis=2) & lt.any(axis=2)  # (n, n)
