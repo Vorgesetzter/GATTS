@@ -123,13 +123,17 @@
 </div>
 
 <script>
-    const scriptURL = "YOUR_GOOGLE_SCRIPT_URL_HERE";
+    const scriptURL = "https://script.google.com/macros/s/AKfycbz_yeQJXp0Sr4LDENVBviqQ1xZ_WdLJBW5L-i9M3QTxArKUEMnLFOm2RjD9LOzehGth/exec";
     const baseURL = "https://raw.githubusercontent.com/Vorgesetzter/StyleTTS2/main/survey/TTS/Success/";
 
     // LIST YOUR 40 FILENAMES HERE
     const allAudios = ["sample1.wav", "sample2.wav"];
 
-    let selectedAudios = allAudios.sort(() => 0.5 - Math.random()).slice(0, 10);
+    for (let i = allAudios.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allAudios[i], allAudios[j]] = [allAudios[j], allAudios[i]];
+    }
+    let selectedAudios = allAudios.slice(0, 10);
     let currentIndex = 0;
     let results = [["Filename", "Transcription", "MOS_Score", "Email"]];
 
@@ -146,7 +150,7 @@
     }
 
     function loadQuestion() {
-        document.getElementById('task-title').innerText = `Audio Sample ${currentIndex + 1} of 10`;
+        document.getElementById('task-title').innerText = `Audio Sample ${currentIndex + 1} of ${selectedAudios.length}`;
         document.getElementById('audio-player').src = baseURL + selectedAudios[currentIndex];
         document.getElementById('transcription').value = "";
         document.querySelectorAll('input[name="mos"]').forEach(rb => rb.checked = false);
@@ -164,7 +168,7 @@
         results.push([selectedAudios[currentIndex], `"${transcription.replace(/"/g, '""')}"`, mos, ""]);
 
         currentIndex++;
-        if (currentIndex < 10) { loadQuestion(); }
+        if (currentIndex < selectedAudios.length) { loadQuestion(); }
         else { showFinalSlide(); }
     }
 
@@ -191,6 +195,8 @@
         }).then(() => {
             localStorage.setItem('tts_survey_done', 'true');
             document.getElementById('main-card').innerHTML = `<h2>Success!</h2><p>Results saved. You can close this window now.</p>`;
+        }).catch(() => {
+            document.getElementById('main-card').innerHTML = `<h2>Error</h2><p>Submission failed. Please try again or contact the researcher.</p><button onclick="finalSubmit()">Retry</button>`;
         });
     }
 </script>
