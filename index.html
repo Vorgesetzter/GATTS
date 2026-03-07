@@ -441,6 +441,9 @@
             <div class="btn-row" style="justify-content:flex-end;">
                 <button onclick="finalSubmit()">Submit &amp; Finish</button>
             </div>`;
+        document.getElementById('user-email').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); finalSubmit(); }
+        });
     }
 
     function buildResults() {
