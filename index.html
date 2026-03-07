@@ -5,22 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Evaluation Survey</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; color: #333; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: none; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f7f3ef; /* Warm parchment */
+            color: #4b3f35; /* Earthy charcoal/brown */
+        }
+        .card {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: none;
+            border: 1px solid #e8e2db;
+        }
         .active { display: block; }
-        h2 { margin-top: 0; color: #007bff; }
-        audio { width: 100%; margin: 20px 0; }
-        textarea { width: 100%; height: 100px; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; resize: vertical; }
-        .mos-scale { display: flex; justify-content: space-between; margin: 25px 0; }
+        h2 { margin-top: 0; color: #4b3f35; font-weight: 700; }
+
+        /* Perfect Width Alignment */
+        audio, textarea, .mos-scale {
+            width: 100%;
+            box-sizing: border-box; /* Ensures padding stays inside the width */
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            height: 100px;
+            padding: 12px;
+            border: 1.5px solid #dcd3cb;
+            border-radius: 6px;
+            font-size: 16px;
+            background-color: #fdfaf6;
+            color: #4b3f35;
+            resize: none; /* Keeps the look consistent */
+        }
+
+        .mos-scale { display: flex; justify-content: space-between; margin: 15px 0; }
         .mos-option { text-align: center; flex: 1; }
         .mos-option input { display: none; }
-        .mos-option label { display: block; padding: 15px 5px; margin: 0 4px; background: #f0f0f0; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .mos-option input:checked + label { background: #007bff; color: white; transform: translateY(-2px); }
-        .legend { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.2; }
-        .btn-container { margin-top: 30px; overflow: hidden; }
-        button { background: #007bff; color: white; border: none; padding: 14px 28px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; float: right; transition: 0.3s; }
-        button:hover { background: #0056b3; }
-        .intro-text { line-height: 1.8; }
+        .mos-option label {
+            display: block;
+            padding: 12px 0;
+            margin: 0 3px;
+            background: #f0edea;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .mos-option input:checked + label {
+            background: #4b3f35;
+            color: #ffffff;
+            border-color: #4b3f35;
+        }
+        .legend { font-size: 11px; color: #8c7e73; margin-top: 6px; }
+
+        button {
+            background: #4b3f35;
+            color: #ffffff;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            float: right;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
