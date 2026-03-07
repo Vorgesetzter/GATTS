@@ -271,11 +271,23 @@
 
     function isPart1() { return currentIndex < 10; }
 
-    function attachAudioGate(player, btn) {
+    let audioReady = false;
+    let mosReady   = false;
+
+    function checkPart1Ready() {
+        const btn = document.getElementById('next-btn');
+        if (!btn) return;
+        const ready = audioReady && mosReady;
+        btn.disabled = !ready;
+        const hint = document.getElementById('listen-hint');
+        if (hint) hint.style.display = audioReady ? 'none' : 'block';
+    }
+
+    function attachAudioGate(player) {
         player.addEventListener('timeupdate', function onProgress() {
             if (player.duration && player.currentTime >= player.duration * 0.8) {
-                btn.disabled = false;
-                document.getElementById('listen-hint').style.display = 'none';
+                audioReady = true;
+                checkPart1Ready();
                 player.removeEventListener('timeupdate', onProgress);
             }
         });
@@ -303,12 +315,19 @@
         const btn = document.getElementById('next-btn');
 
         if (isPart1()) {
+            audioReady = false;
+            mosReady   = false;
             btn.disabled = true;
             document.getElementById('listen-hint').style.display = 'block';
+
             const player = document.getElementById('audio-player');
             player.src = baseURL + clip.file;
-            attachAudioGate(player, btn);
-            document.querySelectorAll('input[name="mos"]').forEach(rb => rb.checked = false);
+            attachAudioGate(player);
+
+            document.querySelectorAll('input[name="mos"]').forEach(rb => {
+                rb.checked = false;
+                rb.addEventListener('change', () => { mosReady = true; checkPart1Ready(); }, { once: true });
+            });
             document.getElementById('transcription').value = "";
         } else {
             btn.disabled = false;
@@ -324,7 +343,6 @@
 
         if (isPart1()) {
             const mos = document.querySelector('input[name="mos"]:checked')?.value;
-            if (!mos) { alert("Please select a quality rating (1–5) before proceeding."); return; }
             const transcription = document.getElementById('transcription').value.trim();
             results.push([clip.file, clip.version, clip.sentenceId, clip.bucketType,
                           "listen+rate", "", `"${transcription.replace(/"/g, '""')}"`, mos, ""]);
