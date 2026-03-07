@@ -2,21 +2,23 @@
 Select audio samples for MOS survey.
 
 Design:
-  - 10 "successful" sentences (both methods have ≥1 successful run)
-  - 10 "failed" sentences (mixed pool: one method failed)
-  - Per sentence: GT + TTS_random_run + Waveform_random_run → 3 clips each
-  - Total pool: 60 clips
+  - 10 "both_success" sentences: both methods have ≥1 successful run → pick a successful run
+  - 10 "both_fail"    sentences: both methods have ≥1 failed run    → pick a failed run
+  - Both groups are disjoint (fail pool sampled first; success pool drawn from remaining)
+  - Per sentence: GT + TTS_run + Waveform_run → 3 clips each
+  - Total: 60 clips
 
 Survey structure (per participant):
   - Shuffle the 20 sentence groups, pick random version (GT/TTS/Waveform) per group
-  - First 10 → Part 1: listen + MOS rating
-  - Next  10 → Part 2: listen + transcribe what you heard
+  - First 10 → Part 1: listen + transcribe + MOS rating
+  - Next  10 → Part 2: read transcription + guess original sentence
 
 Output:
   <output_dir>/GT/          gt_<sentence_id:03d>.wav
   <output_dir>/TTS/         tts_<sentence_id:03d>.wav
   <output_dir>/Waveform/    waveform_<sentence_id:03d>.wav
   <output_dir>/manifest.json
+  <output_dir>/sentence_groups.js
 
 Usage:
   python Scripts/Analysis/select_survey_samples.py
@@ -48,8 +50,13 @@ def run_folder(root: str, sentence_id: int, run_id: int) -> str:
     return os.path.join(root, f"sentence_{sentence_id:03d}", f"run_{run_id}")
 
 
-def random_run(df: pd.DataFrame, sentence_id: int, rng: np.random.Generator) -> pd.Series:
-    rows = df[df["sentence_id"] == sentence_id]
+def random_success_run(df: pd.DataFrame, sentence_id: int, rng: np.random.Generator) -> pd.Series:
+    rows = df[(df["sentence_id"] == sentence_id) & (df["success"] == True)]
+    return rows.iloc[rng.integers(len(rows))]
+
+
+def random_failed_run(df: pd.DataFrame, sentence_id: int, rng: np.random.Generator) -> pd.Series:
+    rows = df[(df["sentence_id"] == sentence_id) & (df["success"] == False)]
     return rows.iloc[rng.integers(len(rows))]
 
 
@@ -81,13 +88,21 @@ def main():
     parser.add_argument("--waveform_root", default="outputs/results/Waveform")
     parser.add_argument("--output_dir",    default="survey")
     parser.add_argument("--n_success",     type=int, default=10,
-                        help="Sentences where both methods succeeded")
+                        help="Sentences where both methods have >=1 successful run")
     parser.add_argument("--n_failed",      type=int, default=10,
-                        help="Sentences from the mixed pool (one method failed)")
+                        help="Sentences where both methods have >=1 failed run")
     parser.add_argument("--seed",          type=int, default=42)
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
+
+    # ------------------------------------------------------------------
+    # Clean output directory
+    # ------------------------------------------------------------------
+    if os.path.exists(args.output_dir):
+        shutil.rmtree(args.output_dir)
+        print(f"Cleared existing output dir: {args.output_dir}")
+    os.makedirs(args.output_dir)
 
     # ------------------------------------------------------------------
     # Load & classify
@@ -101,37 +116,46 @@ def main():
 
     tts_any_success = tts.groupby("sentence_id")["success"].any()
     wav_any_success = wav.groupby("sentence_id")["success"].any()
+    tts_any_failure = tts.groupby("sentence_id")["success"].apply(lambda x: (~x).any())
+    wav_any_failure = wav.groupby("sentence_id")["success"].apply(lambda x: (~x).any())
 
-    both_success = [s for s in shared_ids if tts_any_success.get(s) and wav_any_success.get(s)]
-    mixed        = [s for s in shared_ids if tts_any_success.get(s) != wav_any_success.get(s)]
+    both_have_success = [s for s in shared_ids if tts_any_success.get(s) and wav_any_success.get(s)]
+    both_have_failure = [s for s in shared_ids if tts_any_failure.get(s) and wav_any_failure.get(s)]
 
-    print(f"Shared sentences:       {len(shared_ids)}")
-    print(f"Both-success pool:      {len(both_success)}")
-    print(f"Mixed pool (one fails): {len(mixed)}")
+    print(f"Shared sentences:            {len(shared_ids)}")
+    print(f"Both have >=1 success:       {len(both_have_success)}")
+    print(f"Both have >=1 failure:       {len(both_have_failure)}")
+    print(f"Overlap between pools:       {len(set(both_have_success) & set(both_have_failure))}")
 
-    # Sample sentence IDs
-    n_s = min(args.n_success, len(both_success))
-    n_f = min(args.n_failed,  len(mixed))
+    # Sample fail pool first (smaller), then success from remaining to avoid duplicates
+    n_f = min(args.n_failed,  len(both_have_failure))
+    sel_failed = sorted(rng.choice(both_have_failure, size=n_f, replace=False).tolist())
 
-    sel_success = sorted(rng.choice(both_success, size=n_s, replace=False).tolist())
-    sel_failed  = sorted(rng.choice(mixed,        size=n_f, replace=False).tolist())
+    remaining_success = [s for s in both_have_success if s not in set(sel_failed)]
+    n_s = min(args.n_success, len(remaining_success))
+    sel_success = sorted(rng.choice(remaining_success, size=n_s, replace=False).tolist())
+
     all_selected = sorted(sel_success + sel_failed)
 
-    print(f"\nSelected {n_s} success + {n_f} failed = {len(all_selected)} sentences")
-    print(f"  Success IDs: {sel_success}")
-    print(f"  Failed  IDs: {sel_failed}")
+    print(f"\nSelected {n_s} both_success + {n_f} both_fail = {len(all_selected)} sentences")
+    print(f"  Both-success IDs: {sel_success}")
+    print(f"  Both-fail    IDs: {sel_failed}")
 
     # ------------------------------------------------------------------
     # Copy clips + build manifest
     # ------------------------------------------------------------------
     manifest = []
-    sentence_groups = []  # For index.html JS array
+    sentence_groups = []
+
+    sel_failed_set  = set(sel_failed)
+    sel_success_set = set(sel_success)
 
     for sid in all_selected:
-        bucket = "both_success" if sid in sel_success else "mixed"
+        is_success = sid in sel_success_set
+        bucket = "both_success" if is_success else "both_fail"
 
-        tts_row = random_run(tts, sid, rng)
-        wav_row = random_run(wav, sid, rng)
+        tts_row = random_success_run(tts, sid, rng) if is_success else random_failed_run(tts, sid, rng)
+        wav_row = random_success_run(wav, sid, rng) if is_success else random_failed_run(wav, sid, rng)
 
         tts_run_dir = run_folder(args.tts_root,      sid, int(tts_row.run_id))
         wav_run_dir = run_folder(args.waveform_root, sid, int(wav_row.run_id))
@@ -197,7 +221,7 @@ def main():
     js_path = os.path.join(args.output_dir, "sentence_groups.js")
     with open(js_path, "w") as f:
         f.write("// Auto-generated by select_survey_samples.py\n")
-        f.write("// Paste sentenceGroups into index.html\n\n")
+        f.write("// Loaded by index.html via <script src>\n\n")
         f.write("const sentenceGroups = ")
         f.write(json.dumps(sentence_groups, indent=2, cls=NumpyEncoder))
         f.write(";\n")
