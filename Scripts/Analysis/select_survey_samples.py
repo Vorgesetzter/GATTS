@@ -149,6 +149,10 @@ def main():
             "gt_text": gt_text,
             "tts_transcription":      str(tts_row.asr_transcription),
             "waveform_transcription": str(wav_row.asr_transcription),
+            "tts_pesq":               float(tts_row.pesq),
+            "tts_set_overlap":        float(tts_row.set_overlap),
+            "waveform_pesq":          float(wav_row.pesq),
+            "waveform_set_overlap":   float(wav_row.set_overlap),
         }
 
         for method, fname, src, row in clips:
