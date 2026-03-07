@@ -5,34 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Evaluation Survey</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; background-color: #f9f9f9; }
-        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: none; }
         .active { display: block; }
+        h2 { margin-top: 0; color: #007bff; }
         audio { width: 100%; margin: 20px 0; }
-        textarea { width: 100%; height: 80px; margin: 10px 0; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        .mos-scale { display: flex; justify-content: space-between; margin: 20px 0; padding: 0; list-style: none; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; resize: vertical; }
+        .mos-scale { display: flex; justify-content: space-between; margin: 25px 0; }
         .mos-option { text-align: center; flex: 1; }
         .mos-option input { display: none; }
-        .mos-option label { display: block; padding: 10px; margin: 2px; background: #eee; border-radius: 4px; cursor: pointer; transition: 0.3s; font-weight: bold; }
-        .mos-option input:checked + label { background: #007bff; color: white; }
-        .legend { font-size: 0.85em; color: #666; margin-top: 5px; }
-        button { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; float: right; }
-        button:disabled { background: #ccc; }
-        .progress { font-size: 0.9em; color: #888; margin-bottom: 10px; }
+        .mos-option label { display: block; padding: 15px 5px; margin: 0 4px; background: #f0f0f0; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .mos-option input:checked + label { background: #007bff; color: white; transform: translateY(-2px); }
+        .legend { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.2; }
+        .btn-container { margin-top: 30px; overflow: hidden; }
+        button { background: #007bff; color: white; border: none; padding: 14px 28px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; float: right; transition: 0.3s; }
+        button:hover { background: #0056b3; }
+        .intro-text { line-height: 1.8; }
     </style>
 </head>
 <body>
 
-<div id="survey-container">
-    <div class="progress">Step <span id="current-step">1</span> of 10</div>
-    <div id="question-card" class="card active">
+<div id="already-done" class="card">
+    <h2>Already Submitted</h2>
+    <p>It looks like you have already completed this evaluation. Thank you!</p>
+</div>
+
+<div id="intro-card" class="card active">
+    <h2>TTS Quality Evaluation</h2>
+    <div class="intro-text">
+        <p>Welcome! You will listen to <strong>10 short audio clips</strong>. For each clip:</p>
+        <ul>
+            <li>Transcribe what you hear.</li>
+            <li>Rate the naturalness on a scale of 1 to 5.</li>
+        </ul>
+        <p>It takes about 5 minutes. <strong>One participant will win a 10€ Amazon Gift Card!</strong></p>
+    </div>
+    <button onclick="startSurvey()">Start Evaluation</button>
+</div>
+
+<div id="survey-container" style="display:none;">
+    <div class="card active" id="main-card">
+        <h2 id="task-title">Audio Sample 1 of 10</h2>
         <audio id="audio-player" controls controlsList="nodownload"></audio>
 
-        <p><strong>Write down what you think the audio says.</strong><br>
-        <small>If you can't detect anything leave it empty</small></p>
+        <p><strong>Transcription:</strong><br>
+        <small>Write what you hear. Leave empty if unintelligible.</small></p>
         <textarea id="transcription" placeholder="Type here..."></textarea>
 
-        <p><strong>Rate the quality of this audio:</strong></p>
+        <p><strong>Quality Rating (MOS):</strong></p>
         <div class="mos-scale">
             <div class="mos-option"><input type="radio" name="mos" id="m1" value="1"><label for="m1">1</label><div class="legend">Bad</div></div>
             <div class="mos-option"><input type="radio" name="mos" id="m2" value="2"><label for="m2">2</label><div class="legend">Poor</div></div>
@@ -41,25 +61,37 @@
             <div class="mos-option"><input type="radio" name="mos" id="m5" value="5"><label for="m5">5</label><div class="legend">Excellent</div></div>
         </div>
 
-        <button id="next-btn" onclick="nextQuestion()">Next</button>
+        <div class="btn-container">
+            <button onclick="nextQuestion()">Next</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // 1. LIST ALL 40 FILENAMES HERE
-    const allAudios = [
-        "sentence01_run01.wav", "sentence02_run01.wav", "sentence03_run01.wav", // ... add all 40
-    ];
-
-    // 2. CONFIG: Your GitHub Base URL (Raw)
+    const scriptURL = "YOUR_GOOGLE_SCRIPT_URL_HERE";
     const baseURL = "https://raw.githubusercontent.com/Vorgesetzter/StyleTTS2/main/survey/TTS/Success/";
+
+    // LIST YOUR 40 FILENAMES HERE
+    const allAudios = ["sample1.wav", "sample2.wav"];
 
     let selectedAudios = allAudios.sort(() => 0.5 - Math.random()).slice(0, 10);
     let currentIndex = 0;
-    let results = [["Filename", "Transcription", "MOS_Score"]];
+    let results = [["Filename", "Transcription", "MOS_Score", "Email"]];
+
+    // Check if already done
+    if(localStorage.getItem('tts_survey_done')) {
+        document.getElementById('intro-card').classList.remove('active');
+        document.getElementById('already-done').classList.add('active');
+    }
+
+    function startSurvey() {
+        document.getElementById('intro-card').style.display = 'none';
+        document.getElementById('survey-container').style.display = 'block';
+        loadQuestion();
+    }
 
     function loadQuestion() {
-        document.getElementById('current-step').innerText = currentIndex + 1;
+        document.getElementById('task-title').innerText = `Audio Sample ${currentIndex + 1} of 10`;
         document.getElementById('audio-player').src = baseURL + selectedAudios[currentIndex];
         document.getElementById('transcription').value = "";
         document.querySelectorAll('input[name="mos"]').forEach(rb => rb.checked = false);
@@ -67,46 +99,45 @@
     }
 
     function nextQuestion() {
-        const transcription = document.getElementById('transcription').value;
-        const mos = document.querySelector('input[name="mos"]:checked')?.value || "0";
+        const mos = document.querySelector('input[name="mos"]:checked')?.value;
+        if (!mos) {
+            alert("Please select a quality rating (1-5) before proceeding.");
+            return;
+        }
 
-        // Save current answer
-        results.push([selectedAudios[currentIndex], `"${transcription.replace(/"/g, '""')}"`, mos]);
+        const transcription = document.getElementById('transcription').value;
+        results.push([selectedAudios[currentIndex], `"${transcription.replace(/"/g, '""')}"`, mos, ""]);
 
         currentIndex++;
-
-        if (currentIndex < 10) {
-            loadQuestion();
-        } else {
-            finishSurvey();
-        }
+        if (currentIndex < 10) { loadQuestion(); }
+        else { showFinalSlide(); }
     }
 
-    function finishSurvey() {
-    // PASTE YOUR GOOGLE WEB APP URL HERE
-    const scriptURL = "https://script.google.com/macros/s/AKfycbz_yeQJXp0Sr4LDENVBviqQ1xZ_WdLJBW5L-i9M3QTxArKUEMnLFOm2RjD9LOzehGth/exec";
-
-    document.getElementById('survey-container').innerHTML = `<h2>Submitting your answers...</h2>`;
-
-    fetch(scriptURL, {
-        method: 'POST',
-        mode: 'no-cors', // Important for Google Apps Script
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results: results })
-    })
-    .then(() => {
-        document.getElementById('survey-container').innerHTML = `
-            <h2>Done!</h2>
-            <p>Thank you. Your results have been saved directly to our spreadsheet.</p>
+    function showFinalSlide() {
+        document.getElementById('main-card').innerHTML = `
+            <h2>Thank You!</h2>
+            <p>Your evaluation is complete. To enter the draw for the <strong>10€ Amazon Gift Card</strong>, enter your email below (optional):</p>
+            <input type="email" id="user-email" placeholder="email@example.com" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; margin-bottom:20px;">
+            <button onclick="finalSubmit()">Submit & Finish</button>
         `;
-    })
-    .catch(error => {
-        console.error('Error!', error.message);
-        document.getElementById('survey-container').innerHTML = `<h2>Error</h2><p>Please try again or contact the researcher.</p>`;
-    });
-}
-    loadQuestion();
-</script>
+    }
 
+    function finalSubmit() {
+        const email = document.getElementById('user-email').value;
+        results[1][3] = email; // Attach email to the first data row for the researcher
+
+        document.getElementById('main-card').innerHTML = `<h2>Submitting...</h2>`;
+
+        fetch(scriptURL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ results: results })
+        }).then(() => {
+            localStorage.setItem('tts_survey_done', 'true');
+            document.getElementById('main-card').innerHTML = `<h2>Success!</h2><p>Results saved. You can close this window now.</p>`;
+        });
+    }
+</script>
 </body>
 </html>
