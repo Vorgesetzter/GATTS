@@ -34,40 +34,6 @@
     "asr_transcription": "you"
   },
   {
-    "filename": "gt_005.wav",
-    "path": "GT/gt_005.wav",
-    "sentence_id": 5,
-    "method": "GT",
-    "bucket": "both_fail",
-    "ground_truth_text": "Rice is often served in round bowls."
-  },
-  {
-    "filename": "tts_005.wav",
-    "path": "TTS/tts_005.wav",
-    "sentence_id": 5,
-    "method": "TTS",
-    "bucket": "both_fail",
-    "ground_truth_text": "Rice is often served in round bowls.",
-    "run_id": 1,
-    "success": false,
-    "pesq": 0.1468459129333496,
-    "set_overlap": 0.6,
-    "asr_transcription": "RICE is often served in round bowls"
-  },
-  {
-    "filename": "waveform_005.wav",
-    "path": "Waveform/waveform_005.wav",
-    "sentence_id": 5,
-    "method": "Waveform",
-    "bucket": "both_fail",
-    "ground_truth_text": "Rice is often served in round bowls.",
-    "run_id": 0,
-    "success": false,
-    "pesq": 0.3823490142822265,
-    "set_overlap": 0.0,
-    "asr_transcription": "you"
-  },
-  {
     "filename": "gt_018.wav",
     "path": "GT/gt_018.wav",
     "sentence_id": 18,
@@ -95,11 +61,11 @@
     "method": "Waveform",
     "bucket": "both_fail",
     "ground_truth_text": "The soft cushion broke the man's fall.",
-    "run_id": 2,
+    "run_id": 0,
     "success": false,
-    "pesq": 0.6848961114883423,
+    "pesq": 0.6858909845352172,
     "set_overlap": 0.0,
-    "asr_transcription": "The South Christian broke the mans law"
+    "asr_transcription": "The selfquestion will commands for"
   },
   {
     "filename": "gt_019.wav",
@@ -490,11 +456,11 @@
     "method": "TTS",
     "bucket": "both_success",
     "ground_truth_text": "Men strive but seldom get rich.",
-    "run_id": 0,
+    "run_id": 2,
     "success": true,
-    "pesq": 0.180548095703125,
+    "pesq": 0.19963941574096677,
     "set_overlap": 0.4,
-    "asr_transcription": "Mens drive but seldom hit rich"
+    "asr_transcription": "Mainstrived but seldom yet rich"
   },
   {
     "filename": "waveform_060.wav",
@@ -612,6 +578,40 @@
     "asr_transcription": "you"
   },
   {
+    "filename": "gt_081.wav",
+    "path": "GT/gt_081.wav",
+    "sentence_id": 81,
+    "method": "GT",
+    "bucket": "both_fail",
+    "ground_truth_text": "Stop whistling and watch the boys march."
+  },
+  {
+    "filename": "tts_081.wav",
+    "path": "TTS/tts_081.wav",
+    "sentence_id": 81,
+    "method": "TTS",
+    "bucket": "both_fail",
+    "ground_truth_text": "Stop whistling and watch the boys march.",
+    "run_id": 1,
+    "success": false,
+    "pesq": 0.16249027252197268,
+    "set_overlap": 0.6,
+    "asr_transcription": "Stop whistling and not the voice march"
+  },
+  {
+    "filename": "waveform_081.wav",
+    "path": "Waveform/waveform_081.wav",
+    "sentence_id": 81,
+    "method": "Waveform",
+    "bucket": "both_fail",
+    "ground_truth_text": "Stop whistling and watch the boys march.",
+    "run_id": 0,
+    "success": false,
+    "pesq": 0.5096143245697021,
+    "set_overlap": 0.0,
+    "asr_transcription": "you"
+  },
+  {
     "filename": "gt_082.wav",
     "path": "GT/gt_082.wav",
     "sentence_id": 82,
@@ -626,11 +626,11 @@
     "method": "TTS",
     "bucket": "both_success",
     "ground_truth_text": "Jerk the rope and the bell rings weakly.",
-    "run_id": 2,
+    "run_id": 0,
     "success": true,
-    "pesq": 0.1906181812286377,
+    "pesq": 0.19414172172546384,
     "set_overlap": 0.4,
-    "asr_transcription": "Jerk the rope and the bill rings weekly"
+    "asr_transcription": "Jerk the rope and the bellarines weekly"
   },
   {
     "filename": "waveform_082.wav",
