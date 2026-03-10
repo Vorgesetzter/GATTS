@@ -34,7 +34,7 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 # Harvard Sentence Lists (IEEE, Rothauser et al. 1969)
 # Source: https://www.cs.columbia.edu/~hgs/audio/harvard.html
 # =============================================================================
-HARVARD_SENTENCES = [
+HARVARD_SENTENCES_OLD = [
     # List 1
     "Glue the sheet to the dark blue background.",
     "Rice is often served in round bowls.",
@@ -44,16 +44,16 @@ HARVARD_SENTENCES = [
     "Kick the ball straight and follow through.",
     "The girl at the booth sold fifty bonds.",
     # List 3
-    "The fish twisted and turned on the bent hook.",
+    "The fish twisted and turned on the bent hook.", # Wrong
     "Press the pants and sew a button on the vest.",
     # List 4
-    "Hoist the load to your left shoulder.",
+    "Hoist the load to your left shoulder.", # Wrong
     "Take the winding path to reach the lake.",
     # List 5
     "The ink stain dried on the finished page.",
-    "The walled town was seized without a fight.",
+    "The walled town was seized without a fight.", # Wrong
     "The horn of the car woke the sleeping cop.",
-    "The heart beat strongly and with firm strokes.",
+    "The heart beat strongly and with firm strokes.", # Wrong
     # List 6
     "The Navy attacked the big task force.",
     "The Navy attacked the big task force.",
@@ -75,6 +75,11 @@ HARVARD_SENTENCES = [
     # List 10
     "The cigar burned a hole in the desk top.",
     "The birch trees were bare and lonely.",
+]
+
+HARVARD_SENTENCES= [
+    "The two met while playing on the sand.",
+    "A tame squirrel makes a nice pet."
 ]
 
 
