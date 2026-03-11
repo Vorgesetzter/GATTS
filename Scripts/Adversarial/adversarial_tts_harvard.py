@@ -35,46 +35,7 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 # Source: https://www.cs.columbia.edu/~hgs/audio/harvard.html
 # =============================================================================
 HARVARD_SENTENCES = [
-    # List 1
-    "Glue the sheet to the dark blue background.",
-    "Rice is often served in round bowls.",
-    "The hogs were fed chopped corn and garbage.",
-    "A large size in stockings is hard to sell.",
-    # List 2
-    "Kick the ball straight and follow through.",
-    "The girl at the booth sold fifty bonds.",
-    # List 3
-    "The fish twisted and turned on the bent hook.", # Wrong
-    "Press the pants and sew a button on the vest.",
-    # List 4
-    "Hoist the load to your left shoulder.", # Wrong
-    "Take the winding path to reach the lake.",
-    # List 5
-    "The ink stain dried on the finished page.",
-    "The walled town was seized without a fight.", # Wrong
-    "The horn of the car woke the sleeping cop.",
-    "The heart beat strongly and with firm strokes.", # Wrong
-    # List 6
-    "The Navy attacked the big task force.",
-    "The Navy attacked the big task force.",
-    "The hat brim was wide and too droopy.",
-    "Men strive but seldom get rich.",
-    "Men strive but seldom get rich.",
-    # List 7
-    "He ran half way to the hardware store.",
-    "The set of china hit the floor with a crash.",
-    # List 8
-    "The two boys' voices echoed in the hall.",
-    "The shelves were bare of both jam or crackers.",
-    # List 9
-    "Stop whistling and watch the boys march.",
-    "Jerk the rope and the bell rings weakly.",
-    "The cup cracked and spilled its contents.",
-    "A salt pickle tastes fine with ham.",
-    "The tree top waved in a graceful way.",
-    # List 10
-    "The cigar burned a hole in the desk top.",
-    "The birch trees were bare and lonely.",
+    "A large size in stockings is hard to sell",
 ]
 
 
