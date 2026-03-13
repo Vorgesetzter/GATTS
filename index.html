@@ -384,19 +384,18 @@
         <!-- CER block -->
         <div class="cer-row" id="cer-block"></div>
 
+        <!-- Word highlighting legend -->
+        <div style="background:#f7f3ef; border:1px solid #e8e2db; border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:12px; color:#6b5c50; line-height:1.8;">
+            <strong style="color:#4b3f35;">Word highlighting</strong> — content words (nouns, verbs, adjectives, adverbs) are <strong>bold</strong>; stop words are <span style="color:#a89f96;">grey</span>.
+            <span style="background:#d4f0d4; border-radius:3px; padding:0 4px; font-weight:700;">green</span> = content word present in both GT and ASR &nbsp;·&nbsp;
+            <span style="background:#fde8e8; border-radius:3px; padding:0 4px; font-weight:700;">red</span> = content word missing from the other text.
+            Approximate to SET_OVERLAP (which uses lemmatisation).
+        </div>
+
         <div class="answer-row">
             <div class="answer-box full-width">
-                <div class="label">Ground Truth (original sentence)
-                    <span class="info-icon" onclick="this.classList.toggle('open')">i
-                        <span class="tooltip">The original Harvard sentence the TTS model was given. Content words (nouns, verbs, adjectives, adverbs) are bold; stop words are grey. Green highlight = word also found in ASR transcript. Red highlight = content word missing from ASR transcript.</span>
-                    </span>
-                </div>
+                <div class="label">Ground Truth (original sentence)</div>
                 <div class="value" id="ans-gt"></div>
-                <div class="highlight-legend">
-                    <span><span class="legend-dot" style="background:#d4f0d4;"></span> matched content word</span>
-                    <span><span class="legend-dot" style="background:#fde8e8;"></span> missing from ASR</span>
-                    <span style="color:#a89f96;">grey = stop word</span>
-                </div>
             </div>
         </div>
 
@@ -491,12 +490,16 @@
         loadSampleAtPos(0);
     }
 
+    function attackSuccess(s) {
+        return s.pesq <= 0.20 && s.set_overlap <= 0.50;
+    }
+
     function buildFilteredList() {
         filteredIndices = selfEvalSamples
             .map((s, i) => ({ s, i }))
             .filter(({ s }) => {
-                if (currentFilter === 'success') return s.success;
-                if (currentFilter === 'fail')    return !s.success;
+                if (currentFilter === 'success') return attackSuccess(s);
+                if (currentFilter === 'fail')    return !attackSuccess(s);
                 return true;
             })
             .map(({ i }) => i);
@@ -509,7 +512,7 @@
             const s = selfEvalSamples[si];
             const opt = document.createElement('option');
             opt.value = pos;
-            opt.textContent = s.label + (s.success ? ' ✓' : ' ✗');
+            opt.textContent = s.label + (attackSuccess(s) ? ' ✓' : ' ✗');
             sel.appendChild(opt);
         });
     }
@@ -543,11 +546,12 @@
         const si = filteredIndices[pos];
         const s  = selfEvalSamples[si];
 
-        // Title & badge
+        // Title & badge — evaluated fresh from metric values
         document.getElementById('card-title').textContent = s.label;
         const badge = document.getElementById('success-badge');
-        badge.textContent = s.success ? 'Success' : 'Failure';
-        badge.className   = 'success-badge ' + (s.success ? 'success-true' : 'success-false');
+        const ok = attackSuccess(s);
+        badge.textContent = ok ? 'Success' : 'Failure';
+        badge.className   = 'success-badge ' + (ok ? 'success-true' : 'success-false');
 
         // Audio
         document.getElementById('audio-player').src = baseURL + s.audio_file;
