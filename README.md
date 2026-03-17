@@ -1,4 +1,4 @@
-# AdvTTS — Setup & Reproduction Guide
+# GenAdvTTS — Setup & Reproduction Guide
 
 ## Installation
 
@@ -58,9 +58,9 @@ The scripts can also be extended for more than two GPUs by adding further backgr
 ## Outputs
 
 Results are saved to `outputs/<objectives>/<timestamp>/` containing:
-- `best_candidate.wav` - Best adversarial audio
+- `best_mixed.wav` - Best adversarial audio
 - `ground_truth.wav` - Original audio
 - `target.wav` - Target audio (if applicable)
-- `run_summary.txt` - Detailed run report
-- `reconstruction_pack.pt` - Torch state for reproducibility
+- `run_summary.json` - Detailed run report
+- `fitness_history.csv` - Fitness values across generations
 - Visualization plots (Pareto front, convergence, etc.)
