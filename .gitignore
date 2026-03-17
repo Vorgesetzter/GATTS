@@ -1,4 +1,9 @@
 __pycache__
+.idea/
+outputs/
+.venv/
+
+*.pth
 
 # self_evaluation: keep only the two audio files per run, exclude spectrograms/CSVs/etc.
 self_evaluation/sentence_*/run_*/*
