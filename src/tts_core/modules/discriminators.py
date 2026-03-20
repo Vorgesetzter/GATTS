@@ -3,7 +3,10 @@ import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn import Conv1d, Conv2d
 from torch.nn.utils import spectral_norm
-from torch.nn.utils.parametrizations import weight_norm
+try:
+    from torch.nn.utils.parametrizations import weight_norm
+except ImportError:
+    from torch.nn.utils import weight_norm
 
 from .utils import get_padding
 

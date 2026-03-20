@@ -2,7 +2,11 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
-from torch.nn.utils import parametrizations.weight_norm, remove_weight_norm, spectral_norm
+try:
+    from torch.nn.utils.parametrizations import weight_norm
+except ImportError:
+    from torch.nn.utils import weight_norm
+from torch.nn.utils import remove_weight_norm, spectral_norm
 from .utils import init_weights, get_padding
 
 import math

@@ -15,11 +15,11 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
-from data.dataclass import ObjectiveContext
-from data.enum import AttackMode
-from objectives.fitness_objective import FitnessObjective
-from objectives.base import BaseObjective
-from trainer.adversarial_trainer import AdversarialTrainer
+from ..data.dataclass import ObjectiveContext
+from ..data.enum import AttackMode
+from ..objectives.fitness_objective import FitnessObjective
+from ..objectives.base_objective import BaseObjective
+from ..trainer.adversarial_trainer import AdversarialTrainer
 
 
 class WaveformAdversarialTrainer(AdversarialTrainer):

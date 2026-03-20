@@ -1,5 +1,4 @@
 import torch
-import torchaudio.functional as F
 from pesq import pesq
 from ..base_objective import BaseObjective
 from ...data.dataclass import ObjectiveContext
@@ -29,33 +28,11 @@ class PesqObjective(BaseObjective):
 
         # --- 1. Lazy Cache Ground Truth (Run Only Once) ---
         if self.cached_gt_16k is None:
-            # Move GT to CPU and Resample 24k -> 16k
-            gt_tensor = torch.as_tensor(self.audio_gt, device='cpu', dtype=torch.float32)
+            self.cached_gt_16k = self.audio_gt.squeeze().cpu().numpy()
 
-            # Ensure shape [1, Time] for torchaudio
-            if gt_tensor.dim() == 1:
-                gt_tensor = gt_tensor.unsqueeze(0)
+        audio_np = audio_mixed.squeeze().cpu().numpy()
 
-            # Resample
-            resampler = F.resample(gt_tensor, orig_freq=24000, new_freq=16000)
-            self.cached_gt_16k = resampler.squeeze().numpy()
-
-        # --- 2. Process Candidate Audio ---
-        # Input is likely on GPU [Time]
-        audio_tensor = torch.as_tensor(audio_mixed, device=self.device, dtype=torch.float32)
-
-        # Resample on GPU (Faster than CPU resampling)
-        if audio_tensor.dim() == 1:
-            audio_tensor = audio_tensor.unsqueeze(0)
-
-        # F.resample handles gradients gracefully, but we don't need them for PESQ
-        with torch.no_grad():
-            resampled_tensor = F.resample(audio_tensor, orig_freq=24000, new_freq=16000)
-
-        # Move to CPU / Numpy for the library
-        audio_np = resampled_tensor.squeeze().cpu().numpy()
-
-        # --- 3. Run PESQ ---
+        # --- 2. Run PESQ ---
         try:
             # Mode 'wb' = Wideband (16kHz)
             # Returns float between -0.5 and 4.5
@@ -65,7 +42,7 @@ class PesqObjective(BaseObjective):
             # print(f"[Warning] PESQ Failed: {e}")
             score = -0.5
 
-        # --- 4. Normalization ---
+        # --- 3. Normalization ---
         # Raw PESQ: -0.5 (Bad) -> 4.5 (Perfect)
         # Goal:      1.0 (Bad) -> 0.0 (Perfect)
 

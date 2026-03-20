@@ -1,9 +1,14 @@
-__pycache__
+__pycache__/
+_*/
 .idea/
 outputs/
 .venv/
+checkpoints/*
+
+**/google_token.json
 
 *.pth
+*.wav
 
 # self_evaluation: keep only the two audio files per run, exclude spectrograms/CSVs/etc.
 self_evaluation/sentence_*/run_*/*

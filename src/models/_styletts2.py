@@ -1,4 +1,5 @@
 from torch import Tensor
+import torchaudio.functional as taf
 
 import phonemizer
 
@@ -17,6 +18,7 @@ def _length_to_mask(lengths):
     mask = torch.gt(mask+1, lengths.unsqueeze(1))
     return mask
 
+SAMPLE_RATE = 16_000
 
 class StyleTTS2:
 
@@ -219,7 +221,9 @@ class StyleTTS2:
             audio_embedding_data.style_vector_prosodic
         )
 
-        return out.squeeze(1)
+        # Resample from native 24 kHz to 16 kHz so all outputs are consistent
+        audio = taf.resample(out.squeeze(1), 24_000, SAMPLE_RATE)
+        return audio
 
     @torch.no_grad()
     def inference(self, text: str, noise: Tensor, embedding_scale=1, diffusion_steps=5):

@@ -1,7 +1,12 @@
 import whisper
 import torch
 import string
-import torchaudio.functional as torchaudio_functional
+
+def load_whisper_model(model_name="tiny", device=None):
+    """Load a Whisper model for SMACK framework."""
+    if device is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    return Whisper(device=device)
 
 class Whisper:
     def __init__(self, device=None):
@@ -17,9 +22,8 @@ class Whisper:
         torch.use_deterministic_algorithms(True, warn_only=False)
 
         try:
-            # 2. Prepare audio tensors (single conversion from numpy)
-            audio_tensor_asr = torchaudio_functional.resample(audio_batch, 24000, 16000)
-            audio_tensor_asr = whisper.pad_or_trim(audio_tensor_asr)
+            # 2. Prepare audio tensors (single conversion from numpy) 16kHz
+            audio_tensor_asr = whisper.pad_or_trim(audio_batch)
 
             # 3. Create Mel spectrogram
             mel_batch = whisper.log_mel_spectrogram(audio_tensor_asr, n_mels=self.model.dims.n_mels).to(self.device)
