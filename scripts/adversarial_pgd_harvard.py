@@ -15,6 +15,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import csv
 import shutil
 import argparse
 import subprocess
@@ -26,7 +27,7 @@ from src.models._whisper import Whisper
 from src.trainer.result_writer import save_attack_result
 
 
-NB_ITER = 200
+NB_ITER = 2
 SEED = 235
 SNR = 35
 
@@ -39,8 +40,9 @@ def create_csv(sentence_ids, output_dir):
     os.makedirs(csv_dir, exist_ok=True)
     csv_path = os.path.join(csv_dir, 'harvard.csv')
 
-    with open(csv_path, 'w') as f:
-        f.write('ID,duration,wav,wrd\n')
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['ID', 'duration', 'wav', 'wrd'])
         for sid in sentence_ids:
             audio_path = os.path.abspath(os.path.join(AUDIO_DIR, f'harvard_sentence_{sid:03d}', 'harvard_audio.wav'))
             if not os.path.exists(audio_path):
@@ -48,7 +50,7 @@ def create_csv(sentence_ids, output_dir):
                 continue
             duration = sf.info(audio_path).duration
             text = HARVARD_SENTENCES[sid - 1].upper()
-            f.write(f'sentence_{sid:03d},{duration:.3f},{audio_path},{text}\n')
+            writer.writerow([f'sentence_{sid:03d}', f'{duration:.3f}', audio_path, text])
 
     return csv_path
 
@@ -58,7 +60,7 @@ def run_pgd_attack(output_dir, gpu=None):
     abs_output_dir = os.path.abspath(output_dir)
     device = f'cuda:{gpu}' if (gpu is not None and torch.cuda.is_available()) else ('cuda:0' if torch.cuda.is_available() else 'cpu')
     cmd = [
-        sys.executable, 'run_attack.py',
+        sys.executable, '-W', 'ignore', 'run_attack.py',
         'attack_configs/whisper/pgd.yaml',
         f'--root={abs_output_dir}',
         f'--data_folder={abs_output_dir}',
@@ -114,7 +116,6 @@ def organize_outputs(sentence_ids, whisper_model, elapsed_time_seconds=None, n_s
         )
 
     shutil.rmtree(save_path, ignore_errors=True)
-    shutil.rmtree(os.path.join(AUDIO_DIR, 'csv'), ignore_errors=True)
 
 
 def main():

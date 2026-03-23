@@ -4,30 +4,14 @@ source ~/miniconda3/etc/profile.d/conda.sh
 
 # Split attack ranges
 START0=1
-END0=50
+END0=1
 
-START1=51
-END1=100
+START1=2
+END1=2
 
 # ---------- Generate all audios first ----------
 python scripts/generate_harvard_audios.py --start $START0 --end $END1
 
-# ---------- GPU 0 ----------
-(
-conda run -n pgd python scripts/adversarial_pgd_harvard.py \
-    --start $START0 --end $END0 \
-    --gpu 0
-) &
-
-PID0=$!
-
-# ---------- GPU 1 ----------
-(
-conda run -n pgd python scripts/adversarial_pgd_harvard.py \
-    --start $START1 --end $END1 \
-    --gpu 1
-) &
-
-PID1=$!
-
-wait $PID0 $PID1
+# ---------- CPU (no CUDA) ----------
+CUDA_VISIBLE_DEVICES="" conda run -n pgd python -W ignore scripts/adversarial_pgd_harvard.py \
+    --start $START0 --end $END1
