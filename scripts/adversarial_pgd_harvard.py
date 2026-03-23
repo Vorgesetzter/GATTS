@@ -27,7 +27,7 @@ from src.models._whisper import Whisper
 from src.trainer.result_writer import save_attack_result
 
 
-NB_ITER = 2
+NB_ITER = 200
 SEED = 235
 SNR = 35
 
