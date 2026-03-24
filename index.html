@@ -173,10 +173,11 @@
         return arr;
     }
 
-    const allClips = shuffle([...FOLDERS]).map(folder => {
-        const file = AUDIO_FILES[Math.floor(Math.random() * AUDIO_FILES.length)];
-        return { folder, file, path: `survey_audios/${folder}/${file}` };
-    });
+    const allClips = shuffle(
+        FOLDERS.flatMap(folder =>
+            AUDIO_FILES.map(file => ({ folder, file, path: `survey_audios/${folder}/${file}` }))
+        )
+    );
 
     const savedAnswers  = allClips.map(() => ({ mos_tech: null, mos_sem: null }));
     const audioUnlocked = new Array(allClips.length).fill(false);
