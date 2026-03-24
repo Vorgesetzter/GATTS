@@ -56,7 +56,6 @@ def create_csv(sentence_ids, output_dir):
 
 
 def run_pgd_attack(output_dir, gpu=None):
-    import torch
     abs_output_dir = os.path.abspath(output_dir)
     device = f'cuda:{gpu}' if (gpu is not None and torch.cuda.is_available()) else ('cuda:0' if torch.cuda.is_available() else 'cpu')
     cmd = [
@@ -122,8 +121,12 @@ def main():
     parser = argparse.ArgumentParser(description='PGD Untargeted Attack — Harvard Sentences')
     parser.add_argument('--start', type=int, default=1, help='First sentence index (1-based)')
     parser.add_argument('--end', type=int, default=100, help='Last sentence index (1-based, inclusive)')
+    parser.add_argument('--nb_iter', type=int, default=NB_ITER, help='Number of PGD iterations')
     parser.add_argument('--gpu', type=int, default=None, help='GPU id to use')
     args = parser.parse_args()
+
+    global NB_ITER
+    NB_ITER = args.nb_iter
 
     if args.gpu is not None:
         print(f"Using GPU: {args.gpu}")

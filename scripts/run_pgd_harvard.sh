@@ -14,4 +14,4 @@ python scripts/generate_harvard_audios.py --start $START0 --end $END1
 
 # ---------- CPU (no CUDA) ----------
 CUDA_VISIBLE_DEVICES="" conda run -n pgd python -W ignore scripts/adversarial_pgd_harvard.py \
-    --start $START0 --end $END1
+    --start $START0 --end $END1 --nb_iter 2

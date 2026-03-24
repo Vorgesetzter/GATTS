@@ -3,75 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TTS Sample Tester</title>
+    <title>Audio Evaluation Survey</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
             margin: 40px auto;
             padding: 20px;
             background-color: #f7f3ef;
             color: #4b3f35;
-            max-width: 1300px;
         }
-
-        .notice-banner {
-            background: #fef3cd;
-            border: 1px solid #f0c040;
-            border-radius: 8px;
-            padding: 14px 18px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            color: #7a5c00;
-        }
-        .notice-banner a { color: #7a5c00; font-weight: 600; }
-
-        /* Main two-column layout */
-        .main-layout {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            align-items: start;
-        }
-
-        .col-card {
+        .card {
             background: #ffffff;
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: none;
             border: 1px solid #e8e2db;
         }
-
+        .active { display: block; }
         h2 { margin-top: 0; color: #4b3f35; font-weight: 700; }
 
-        /* Results content hidden until revealed */
-        #results-content {
-            display: none;
-        }
-        #results-content.revealed {
-            display: block;
-        }
-
-        audio {
+        audio, .mos-scale {
             width: 100%;
             box-sizing: border-box;
-            margin-bottom: 8px;
+            margin-bottom: 20px;
         }
-        textarea {
-            width: 100%;
-            box-sizing: border-box;
-            height: 80px;
-            padding: 12px;
-            border: 1.5px solid #dcd3cb;
-            border-radius: 6px;
-            font-size: 16px;
-            background-color: #fdfaf6;
-            color: #4b3f35;
-            resize: none;
-            margin-bottom: 4px;
-        }
-        textarea:focus { outline: none; border-color: #4b3f35; }
 
-        .mos-scale { display: flex; justify-content: space-between; margin: 10px 0 20px; }
+        .progress-bar-wrap {
+            background: #f0edea;
+            border-radius: 4px;
+            height: 6px;
+            margin-bottom: 24px;
+        }
+        .progress-bar-fill {
+            background: #4b3f35;
+            height: 6px;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .mos-scale { display: flex; justify-content: space-between; margin: 10px 0 4px; }
         .mos-option { text-align: center; flex: 1; }
         .mos-option input { display: none; }
         .mos-option label {
@@ -86,585 +58,257 @@
             border: 1px solid transparent;
         }
         .mos-option input:checked + label { background: #4b3f35; color: #fff; border-color: #4b3f35; }
-        .legend { font-size: 11px; color: #8c7e73; margin-top: 6px; }
-
-        .selector-row {
+        .mos-endpoints {
             display: flex;
-            gap: 10px;
-            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #8c7e73;
             margin-bottom: 20px;
-            flex-wrap: wrap;
         }
-        .selector-row select {
-            flex: 1;
-            min-width: 140px;
-            padding: 10px 12px;
-            border: 1.5px solid #dcd3cb;
-            border-radius: 6px;
-            font-size: 14px;
-            background: #fdfaf6;
-            color: #4b3f35;
-            cursor: pointer;
-        }
-        .selector-row select:focus { outline: none; border-color: #4b3f35; }
 
+        .btn-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
         button {
             background: #4b3f35;
             color: #ffffff;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 28px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             transition: opacity 0.2s;
-            white-space: nowrap;
         }
-        button:hover { opacity: 0.85; }
+        button:hover { opacity: 0.9; }
         button:disabled { background: #b0a89f; cursor: not-allowed; opacity: 1; }
-
-        .btn-outline {
+        .btn-back {
             background: transparent;
             color: #4b3f35;
             border: 1.5px solid #dcd3cb;
         }
-        .btn-outline:hover { background: #f0edea; opacity: 1; }
+        .btn-back:hover { background: #f0edea; opacity: 1; }
+        .btn-back:disabled { background: transparent; color: #c8bdb5; border-color: #e8e2db; }
 
-        .btn-reveal {
-            background: #a07850;
-            width: 100%;
-            padding: 12px;
-            font-size: 15px;
-        }
-        .btn-reveal:hover { opacity: 0.9; }
-
-        .nav-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .filter-row {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
-        .filter-btn {
-            padding: 6px 14px;
-            font-size: 12px;
-            border-radius: 20px;
-            background: #f0edea;
-            color: #4b3f35;
-            border: 1px solid #dcd3cb;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.15s;
-        }
-        .filter-btn:hover { background: #e8e2db; }
-        .filter-btn.active { background: #4b3f35; color: #fff; border-color: #4b3f35; }
-
-        .divider {
-            border: none;
-            border-top: 1.5px solid #e8e2db;
-            margin: 24px 0;
-        }
-
-        .section-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #8c7e73;
-            margin: 0 0 6px;
-        }
-        .listen-hint { font-size: 13px; color: #8c7e73; margin: 0 0 12px; }
-
-        .success-badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-            margin-left: 8px;
-        }
-        .success-true  { background: #cce3f5; color: #0173B2; }
-        .success-false { background: #faebd0; color: #DE8F05; }
-
-        /* Results panel */
-        .answer-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .answer-box {
-            background: #f7f3ef;
-            border: 1px solid #e8e2db;
-            border-radius: 8px;
-            padding: 14px;
-        }
-        .answer-box .label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: #8c7e73;
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-        }
-        .answer-box .value {
-            font-size: 15px;
-            color: #4b3f35;
-            line-height: 1.4;
-        }
-        .answer-box.full-width { grid-column: 1 / -1; }
-
-        .metric-value {
-            font-size: 22px;
-            font-weight: 700;
-            color: #4b3f35;
-        }
-        .metric-value.met   { color: #0173B2; }
-        .metric-value.unmet { color: #DE8F05; }
-        .metric-sub { font-size: 12px; color: #8c7e73; margin-top: 2px; }
-
-        .cer-row { margin-bottom: 12px; }
-        .cer-box {
-            background: #f0edea;
-            border: 1px solid #dcd3cb;
-            border-radius: 8px;
-            padding: 14px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .cer-score { font-size: 26px; font-weight: 700; min-width: 64px; text-align: center; }
-        .cer-score.cer-good { color: #0173B2; }
-        .cer-score.cer-bad  { color: #DE8F05; }
-        .cer-detail { flex: 1; font-size: 13px; color: #6b5c50; line-height: 1.5; }
-        .cer-detail strong { color: #4b3f35; }
-        .cer-empty { font-size: 13px; color: #8c7e73; font-style: italic; }
-
-        /* Checkword highlighting */
-        .content-word { font-weight: 700; color: #4b3f35; }
-        .stop-word    { color: #a89f96; }
-        .word-match   { background: #cce3f5; color: #0173B2; border-radius: 3px; padding: 0 2px; }
-        .word-miss    { background: #faebd0; color: #DE8F05; border-radius: 3px; padding: 0 2px; }
-
-        /* Info tooltip */
-        .info-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 14px; height: 14px;
-            border-radius: 50%;
-            background: #c8bdb5;
-            color: #fff;
-            font-size: 9px;
-            font-weight: 700;
-            font-style: normal;
-            cursor: default;
-            margin-left: 5px;
-            position: relative;
-            vertical-align: middle;
-            line-height: 1;
-            flex-shrink: 0;
-        }
-        .info-icon .tooltip {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 6px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: #3a3028;
-            color: #f7f3ef;
-            font-size: 12px;
-            font-weight: 400;
-            text-transform: none;
-            letter-spacing: 0;
-            line-height: 1.5;
-            padding: 10px 12px;
-            border-radius: 6px;
-            width: 240px;
-            white-space: normal;
-            z-index: 100;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            pointer-events: none;
-        }
-        .info-icon .tooltip::after {
-            content: '';
-            position: absolute;
-            top: 100%; left: 50%;
-            transform: translateX(-50%);
-            border: 5px solid transparent;
-            border-top-color: #3a3028;
-        }
-        .info-icon:hover .tooltip,
-        .info-icon.open .tooltip { display: block; }
+        .listen-hint { font-size: 13px; color: #8c7e73; margin-bottom: 16px; }
     </style>
 </head>
 <body>
 
-<div class="notice-banner">
-    <strong>Survey concluded.</strong> The original survey ran on GitHub at
-    <a href="index_survey.html">index_survey.html</a>.
-    This page is for reviewing and self-testing the audio samples.
+<div id="already-done" class="card">
+    <h2>Already Submitted</h2>
+    <p>It looks like you have already completed this evaluation. Thank you!</p>
 </div>
 
-<div class="main-layout">
-
-    <!-- LEFT COLUMN: TTS Sample -->
-    <div class="col-card">
-        <h2>TTS Sample</h2>
-
-        <!-- Sample selector -->
-        <div class="filter-row">
-            <span style="font-size:13px; color:#8c7e73; align-self:center; margin-right:4px;">Filter:</span>
-            <button class="filter-btn active" onclick="setFilter('all', this)">All (300)</button>
-            <button class="filter-btn" onclick="setFilter('success', this)">Success only</button>
-            <button class="filter-btn" onclick="setFilter('fail', this)">Failures only</button>
-        </div>
-
-        <div class="selector-row">
-            <select id="sample-select" onchange="loadSample(parseInt(this.value))"></select>
-            <button onclick="pickRandom()" class="btn-outline">Random</button>
-        </div>
-
-        <div class="nav-row">
-            <button onclick="prevSample()" class="btn-outline" id="prev-btn">&#8592; Prev</button>
-            <span id="sample-counter" style="font-size:13px; color:#8c7e73;"></span>
-            <button onclick="nextSample()" class="btn-outline" id="next-btn">Next &#8594;</button>
-        </div>
-
-        <hr class="divider">
-
-        <!-- Sample title & badge -->
-        <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:18px;">
-            <h2 style="margin:0; font-size:18px;" id="card-title">—</h2>
-            <span id="success-badge" class="success-badge" title="Attack success = PESQ ≤ 0.20 AND SET_OVERLAP ≤ 0.50 both met"></span>
-        </div>
-
-        <!-- Audio -->
-        <p class="section-label">Adversarial Audio</p>
-        <audio id="audio-player" controls controlsList="nodownload"></audio>
-        <p class="listen-hint">Listen before rating.</p>
-
-        <!-- Transcription -->
-        <p style="margin:0 0 6px;"><strong>What did you hear?</strong>
-            <small style="color:#8c7e73; font-weight:400;"> — leave empty if unintelligible</small></p>
-        <textarea id="transcription" placeholder="Type what you heard…"></textarea>
-
-        <!-- MOS -->
-        <p style="margin: 16px 0 6px;"><strong>Naturalness Rating (MOS):</strong></p>
-        <div class="mos-scale">
-            <div class="mos-option"><input type="radio" name="mos" id="m1" value="1"><label for="m1">1</label><div class="legend">Bad</div></div>
-            <div class="mos-option"><input type="radio" name="mos" id="m2" value="2"><label for="m2">2</label><div class="legend">Poor</div></div>
-            <div class="mos-option"><input type="radio" name="mos" id="m3" value="3"><label for="m3">3</label><div class="legend">Fair</div></div>
-            <div class="mos-option"><input type="radio" name="mos" id="m4" value="4"><label for="m4">4</label><div class="legend">Good</div></div>
-            <div class="mos-option"><input type="radio" name="mos" id="m5" value="5"><label for="m5">5</label><div class="legend">Excellent</div></div>
-        </div>
-
+<div id="intro-card" class="card active">
+    <h2>Audio Quality Evaluation</h2>
+    <p>Welcome! You will listen to <strong>10 short audio clips</strong> and rate each one on two dimensions:</p>
+    <ul>
+        <li><strong>Technical quality</strong> — noise, distortion, clarity</li>
+        <li><strong>Semantic quality</strong> — how coherent and meaningful the spoken content is</li>
+    </ul>
+    <p>Both ratings use a scale from 1 to 5. The survey takes about 5 minutes.</p>
+    <div class="btn-row" style="justify-content:flex-end;">
+        <button onclick="startSurvey()">Start</button>
     </div>
+</div>
 
-    <!-- RIGHT COLUMN: TTS Results -->
-    <div class="col-card" id="col-results">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2 style="margin:0;">TTS Results</h2>
-            <button class="btn-reveal" id="reveal-btn" onclick="toggleReveal()" style="width:auto; padding:10px 20px;">Reveal Answer</button>
+<div id="survey-container" style="display:none;">
+    <div class="card active" id="main-card">
+
+        <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
         </div>
 
-        <div id="results-content">
+        <h2 id="task-title"></h2>
 
-        <!-- CER -->
-        <div class="cer-row" id="cer-block"></div>
+        <audio id="audio-player" controls controlsList="nodownload" style="width:100%;margin-bottom:8px;"></audio>
+        <p class="listen-hint" id="listen-hint">Listen to the clip before rating.</p>
 
-        <!-- Word highlighting legend -->
-        <div style="background:#f7f3ef; border:1px solid #e8e2db; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:#6b5c50;">
-            <strong style="color:#4b3f35; display:block; margin-bottom:6px;">Word Highlighting</strong>
-            <ul style="margin:0; padding-left:18px; line-height:1.9;">
-                <li><span style="color:#a89f96;">Grey</span> = stopword (function word, not evaluated by SET_OVERLAP)</li>
-                <li><strong style="color:#4b3f35;">Bold</strong> = checkword: words remaining after removing function words ("the", "on", "a", "is", ...) via a stopword list. These carry semantic content and are what SET_OVERLAP evaluates.</li>
-                <li><span style="background:#cce3f5; color:#0173B2; border-radius:3px; padding:0 4px; font-weight:700;">Blue</span> = checkword found in both GT and ASR</li>
-                <li><span style="background:#faebd0; color:#DE8F05; border-radius:3px; padding:0 4px; font-weight:700;">Orange</span> = checkword missing from the other text</li>
-                <li style="color:#a89f96;">Highlighting uses exact matching; SET_OVERLAP additionally applies lemmatisation</li>
-            </ul>
+        <p><strong>Technical Audio Quality</strong><br>
+        <small>How would you rate the technical audio quality (e.g., noise, distortion, clarity)?</small></p>
+        <div class="mos-scale">
+            <div class="mos-option"><input type="radio" name="mos_tech" id="t1" value="1"><label for="t1">1</label></div>
+            <div class="mos-option"><input type="radio" name="mos_tech" id="t2" value="2"><label for="t2">2</label></div>
+            <div class="mos-option"><input type="radio" name="mos_tech" id="t3" value="3"><label for="t3">3</label></div>
+            <div class="mos-option"><input type="radio" name="mos_tech" id="t4" value="4"><label for="t4">4</label></div>
+            <div class="mos-option"><input type="radio" name="mos_tech" id="t5" value="5"><label for="t5">5</label></div>
         </div>
+        <div class="mos-endpoints"><span>1 – Heavily corrupted</span><span>5 – Perfectly clear</span></div>
 
-        <div class="answer-row">
-            <div class="answer-box full-width">
-                <div class="label">Ground Truth (original sentence)</div>
-                <div class="value" id="ans-gt"></div>
-            </div>
+        <p><strong>Semantic Quality</strong><br>
+        <small>How would you rate the semantic quality of the spoken content?</small></p>
+        <div class="mos-scale">
+            <div class="mos-option"><input type="radio" name="mos_sem" id="s1" value="1"><label for="s1">1</label></div>
+            <div class="mos-option"><input type="radio" name="mos_sem" id="s2" value="2"><label for="s2">2</label></div>
+            <div class="mos-option"><input type="radio" name="mos_sem" id="s3" value="3"><label for="s3">3</label></div>
+            <div class="mos-option"><input type="radio" name="mos_sem" id="s4" value="4"><label for="s4">4</label></div>
+            <div class="mos-option"><input type="radio" name="mos_sem" id="s5" value="5"><label for="s5">5</label></div>
         </div>
+        <div class="mos-endpoints"><span>1 – Nonsensical or unintelligible</span><span>5 – Fully coherent and meaningful</span></div>
 
-        <div class="answer-row">
-            <div class="answer-box full-width">
-                <div class="label">ASR Transcription (from adversarial audio)</div>
-                <div class="value" id="ans-asr"></div>
-            </div>
+        <div class="btn-row">
+            <button id="back-btn" class="btn-back" onclick="prevQuestion()">Back</button>
+            <button id="next-btn" onclick="nextQuestion()">Next</button>
         </div>
+    </div>
+</div>
 
-        <p class="section-label">Ground Truth Audio (for comparison)</p>
-        <audio id="gt-audio-player" controls controlsList="nodownload" style="width:100%; margin-bottom:16px;"></audio>
-
-        <div class="answer-row">
-            <div class="answer-box">
-                <div class="label">UTMOS
-                    <span class="info-icon" onclick="this.classList.toggle('open')">i
-                        <span class="tooltip">UTMOS is an automatic MOS predictor trained on human speech quality ratings. It estimates naturalness on a 1–5 scale without human listeners. A score ≥ 3.5 indicates the adversarial audio still sounds natural.</span>
-                    </span>
-                </div>
-                <div class="metric-value" id="ans-utmos-best"></div>
-                <div class="metric-sub">Predicted MOS · threshold ≥3.5</div>
-            </div>
-            <div class="answer-box">
-                <div class="label">PESQ
-                    <span class="info-icon" onclick="this.classList.toggle('open')">i
-                        <span class="tooltip">Perceptual Evaluation of Speech Quality. Measures perceptual distortion between the adversarial and ground truth audio. Here it is normalised to [0, 1] and inverted: 0 = identical to GT, 1 = maximally distorted. Success threshold ≤ 0.20 means the audio remains perceptually close to the original.</span>
-                    </span>
-                </div>
-                <div class="metric-value" id="ans-pesq"></div>
-                <div class="metric-sub">Perceptual quality · threshold ≤0.20</div>
-            </div>
-        </div>
-
-        <div class="answer-row">
-            <div class="answer-box">
-                <div class="label">SET_OVERLAP
-                    <span class="info-icon" onclick="this.classList.toggle('open')">i
-                        <span class="tooltip">Fraction of checkwords shared between the ground truth and the ASR transcription of the adversarial audio, after lemmatisation. Checkwords are words remaining after removing function words (stopwords). 0 = no shared checkwords, 1 = identical. Success threshold ≤ 0.50.</span>
-                    </span>
-                </div>
-                <div class="metric-value" id="ans-overlap"></div>
-                <div class="metric-sub">Checkword overlap · threshold ≤0.50</div>
-            </div>
-            <div class="answer-box">
-                <div class="label">SBERT Semantic Similarity
-                    <span class="info-icon" onclick="this.classList.toggle('open')">i
-                        <span class="tooltip">Cosine similarity between Sentence-BERT embeddings of the ground truth text and the ASR transcription of the adversarial audio. Measures how much the meaning diverged. 1 = identical meaning, 0 = completely unrelated. Success threshold ≤ 0.60 indicates meaningful semantic divergence.</span>
-                    </span>
-                </div>
-                <div class="metric-value" id="ans-sbert"></div>
-                <div class="metric-sub">ASR vs ground truth · threshold ≤0.60</div>
-            </div>
-        </div>
-
-        </div><!-- end results-content -->
-    </div><!-- end col-results -->
-
-</div><!-- end main-layout -->
-
-<script src="survey/self_eval_samples.js"></script>
 <script>
-    const baseURL = "https://raw.githubusercontent.com/ANONYMOUS/StyleTTS2/main/";
+    const scriptURL = "https://script.google.com/macros/s/AKfycbz_yeQJXp0Sr4LDENVBviqQ1xZ_WdLJBW5L-i9M3QTxArKUEMnLFOm2RjD9LOzehGth/exec";
 
-    let currentFilter = 'all';
-    let filteredIndices = [];
-    let currentPos = 0;
-    let revealed = false;
+    const FOLDERS    = ["5", "8", "28", "41", "45", "52", "57", "70", "72", "87"];
+    const AUDIO_FILES = ["harvard_audio.wav", "pgd.wav", "smack.wav", "tts.wav", "waveform.wav"];
 
-    function setFilter(f, btn) {
-        currentFilter = f;
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        buildFilteredList();
-        buildSelect();
-        currentPos = 0;
-        loadSampleAtPos(0);
+    const participantId = Math.random().toString(36).slice(2, 10).toUpperCase();
+
+    function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
     }
 
-    function attackSuccess(s) {
-        return s.pesq <= 0.20 && s.set_overlap <= 0.50;
+    const allClips = shuffle([...FOLDERS]).map(folder => {
+        const file = AUDIO_FILES[Math.floor(Math.random() * AUDIO_FILES.length)];
+        return { folder, file, path: `survey_audios/${folder}/${file}` };
+    });
+
+    const savedAnswers  = allClips.map(() => ({ mos_tech: null, mos_sem: null }));
+    const audioUnlocked = new Array(allClips.length).fill(false);
+
+    let currentIndex = 0;
+    let audioReady   = false;
+
+    if (localStorage.getItem('mos_survey_v2_done')) {
+        document.getElementById('intro-card').classList.remove('active');
+        document.getElementById('already-done').classList.add('active');
     }
 
-    function buildFilteredList() {
-        filteredIndices = selfEvalSamples
-            .map((s, i) => ({ s, i }))
-            .filter(({ s }) => {
-                if (currentFilter === 'success') return attackSuccess(s);
-                if (currentFilter === 'fail')    return !attackSuccess(s);
-                return true;
-            })
-            .map(({ i }) => i);
+    function checkReady() {
+        const techEl = document.querySelector('input[name="mos_tech"]:checked');
+        const semEl  = document.querySelector('input[name="mos_sem"]:checked');
+        const btn    = document.getElementById('next-btn');
+        const hint   = document.getElementById('listen-hint');
+        if (btn)  btn.disabled = !(audioReady && techEl && semEl);
+        if (hint) hint.style.display = audioReady ? 'none' : 'block';
     }
 
-    function buildSelect() {
-        const sel = document.getElementById('sample-select');
-        sel.innerHTML = '';
-        filteredIndices.forEach((si, pos) => {
-            const s = selfEvalSamples[si];
-            const opt = document.createElement('option');
-            opt.value = pos;
-            opt.textContent = s.label + (attackSuccess(s) ? ' ✓' : ' ✗');
-            sel.appendChild(opt);
+    function attachAudioGate(player) {
+        player.addEventListener('timeupdate', function onProgress() {
+            if (player.duration && player.currentTime >= player.duration * 0.8) {
+                audioReady = true;
+                audioUnlocked[currentIndex] = true;
+                checkReady();
+                player.removeEventListener('timeupdate', onProgress);
+            }
         });
     }
 
-    function prevSample() {
-        if (currentPos > 0) { currentPos--; loadSampleAtPos(currentPos); }
+    function saveCurrentAnswer() {
+        const ans     = savedAnswers[currentIndex];
+        const techEl  = document.querySelector('input[name="mos_tech"]:checked');
+        const semEl   = document.querySelector('input[name="mos_sem"]:checked');
+        ans.mos_tech  = techEl ? techEl.value : null;
+        ans.mos_sem   = semEl  ? semEl.value  : null;
     }
 
-    function nextSample() {
-        if (currentPos < filteredIndices.length - 1) { currentPos++; loadSampleAtPos(currentPos); }
-    }
+    function loadQuestion() {
+        const clip  = allClips[currentIndex];
+        const total = allClips.length;
 
-    function pickRandom() {
-        currentPos = Math.floor(Math.random() * filteredIndices.length);
-        loadSampleAtPos(currentPos);
-    }
+        document.getElementById('progress-bar').style.width = (currentIndex / total * 100) + '%';
+        document.getElementById('task-title').innerText = `Clip ${currentIndex + 1} of ${total}`;
 
-    function loadSample(pos) {
-        currentPos = pos;
-        loadSampleAtPos(pos);
-    }
+        document.getElementById('back-btn').disabled = (currentIndex === 0);
 
-    function loadSampleAtPos(pos) {
-        currentPos = pos;
-        document.getElementById('sample-select').value = pos;
+        const ans = savedAnswers[currentIndex];
 
-        const si = filteredIndices[pos];
-        const s  = selfEvalSamples[si];
+        // Restore MOS radios
+        document.querySelectorAll('input[name="mos_tech"]').forEach(rb => {
+            rb.checked = (rb.value === ans.mos_tech);
+            rb.addEventListener('change', checkReady);
+        });
+        document.querySelectorAll('input[name="mos_sem"]').forEach(rb => {
+            rb.checked = (rb.value === ans.mos_sem);
+            rb.addEventListener('change', checkReady);
+        });
 
-        document.getElementById('card-title').textContent = s.label;
-        const badge = document.getElementById('success-badge');
-        const ok = attackSuccess(s);
-        badge.textContent = ok ? 'Success' : 'Failure';
-        badge.className   = 'success-badge ' + (ok ? 'success-true' : 'success-false');
+        audioReady = audioUnlocked[currentIndex];
+        const player = document.getElementById('audio-player');
+        player.src = clip.path;
+        if (!audioReady) attachAudioGate(player);
 
-        document.getElementById('audio-player').src = baseURL + s.audio_file;
-        document.getElementById('gt-audio-player').src = baseURL + s.gt_audio_file;
-
-        document.getElementById('transcription').value = '';
-        document.querySelectorAll('input[name="mos"]').forEach(r => r.checked = false);
-
-        revealed = false;
-        document.getElementById('results-content').classList.remove('revealed');
-        document.getElementById('reveal-btn').textContent = 'Reveal Answer';
-
-        document.getElementById('ans-gt').innerHTML  = highlightText(s.ground_truth_text, s.asr_transcription);
-        document.getElementById('ans-asr').innerHTML = highlightText(s.asr_transcription, s.ground_truth_text);
-
-        setMetric('ans-utmos-best', s.utmos_best.toFixed(4), s.utmos_best >= 3.5);
-        setMetric('ans-pesq',       s.pesq.toFixed(4),       s.pesq <= 0.20);
-        setMetric('ans-overlap',    s.set_overlap.toFixed(2), s.set_overlap <= 0.50);
-        setMetric('ans-sbert',      s.semantic_similarity.toFixed(4), s.semantic_similarity <= 0.60);
-
-        document.getElementById('sample-counter').textContent = `${pos + 1} / ${filteredIndices.length}`;
-        document.getElementById('prev-btn').disabled = (pos === 0);
-        document.getElementById('next-btn').disabled = (pos === filteredIndices.length - 1);
-
+        checkReady();
         window.scrollTo(0, 0);
     }
 
-    // Checkword highlighting
-    const STOP_WORDS = new Set([
-        'a','an','the','and','but','or','nor','for','yet','so','if','as','at',
-        'by','in','of','on','to','up','it','its','be','is','are','was','were',
-        'been','being','have','has','had','do','does','did','will','would',
-        'could','should','may','might','shall','can','need','must','am',
-        'i','me','my','we','our','you','your','he','him','his','she','her',
-        'they','them','their','this','that','these','those','what','which',
-        'who','whom','when','where','why','how','all','each','both','few',
-        'more','most','other','some','no','not','only','same','too','very',
-        'just','with','from','into','through','during','before','after',
-        'above','below','between','out','off','over','under','again','then',
-        'there','here','about','also','than','such','even','though','although',
-        'while','because','since','until','whether','whose','whom','s','t',
-        'its',"it's","don't","doesn't","didn't","won't","can't",
-        "couldn't","shouldn't","aren't","isn't","wasn't","weren't"
-    ]);
-
-    function isContentWord(w) {
-        return !STOP_WORDS.has(w.toLowerCase().replace(/[^a-z']/g, ''));
+    function prevQuestion() {
+        saveCurrentAnswer();
+        if (currentIndex === 0) return;
+        currentIndex--;
+        loadQuestion();
     }
 
-    function tokenize(text) {
-        return text.split(/(\s+|[^\w']+)/).filter(t => t.length > 0);
-    }
-
-    function contentWordSet(text) {
-        return new Set(
-            text.split(/\s+/)
-                .map(w => w.toLowerCase().replace(/[^a-z]/g, ''))
-                .filter(w => w && isContentWord(w))
-        );
-    }
-
-    function highlightText(text, otherText) {
-        const otherWords = contentWordSet(otherText);
-        return tokenize(text).map(token => {
-            const clean = token.toLowerCase().replace(/[^a-z]/g, '');
-            if (!clean || /^\s+$/.test(token)) return token;
-            if (!isContentWord(token)) return `<span class="stop-word">${token}</span>`;
-            const cls = otherWords.has(clean) ? 'content-word word-match' : 'content-word word-miss';
-            return `<span class="${cls}">${token}</span>`;
-        }).join('');
-    }
-
-    function setMetric(id, text, met) {
-        const el = document.getElementById(id);
-        el.textContent = text;
-        el.className = 'metric-value' + (met === null ? '' : met ? ' met' : ' unmet');
-    }
-
-    // CER
-    function normalize(s) { return s.toLowerCase().replace(/[^a-z]/g, ''); }
-
-    function cer(ref, hyp) {
-        const r = normalize(ref), h = normalize(hyp);
-        if (r.length === 0) return hyp.trim().length === 0 ? 0 : 1;
-        const m = r.length, n = h.length;
-        const dp = Array.from({length: m + 1}, (_, i) => Array.from({length: n + 1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));
-        for (let i = 1; i <= m; i++)
-            for (let j = 1; j <= n; j++)
-                dp[i][j] = r[i-1] === h[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-        return dp[m][n] / m;
-    }
-
-    const CER_THRESHOLD = 0.1642;
-
-    function renderCER() {
-        const block = document.getElementById('cer-block');
-        const userText = document.getElementById('transcription').value.trim();
-        const s = selfEvalSamples[filteredIndices[currentPos]];
-
-        if (!userText) {
-            block.innerHTML = '<div class="cer-box"><span class="cer-empty">No transcription entered — CER not available.</span></div>';
-            return;
+    function nextQuestion() {
+        saveCurrentAnswer();
+        currentIndex++;
+        if (currentIndex < allClips.length) {
+            loadQuestion();
+        } else {
+            showFinalSlide();
         }
+    }
 
-        const cerGT = cer(s.ground_truth_text, userText);
-        const good  = cerGT <= CER_THRESHOLD;
-
-        block.innerHTML = `
-            <div class="answer-box full-width" style="margin-bottom:12px;">
-                <div class="label">Your CER vs Ground Truth · threshold: ${(CER_THRESHOLD*100).toFixed(1)}% (mean + 1σ)
-                    <span class="info-icon" onclick="this.classList.toggle('open')">i
-                        <span class="tooltip">Character Error Rate: Levenshtein edit distance at character level divided by reference length (alphabet-only, lowercased). Threshold 16.42% = mean CER of GT recordings + 1 standard deviation. Above this threshold suggests the audio was hard to transcribe accurately.</span>
-                    </span>
-                </div>
-                <div style="margin-top:10px;">
-                    <div class="cer-box">
-                        <div class="cer-score ${good ? 'cer-good' : 'cer-bad'}">${(cerGT * 100).toFixed(1)}%</div>
-                        <div class="cer-detail">vs <strong>Ground Truth</strong><br>${good ? `≤ threshold (${(CER_THRESHOLD*100).toFixed(1)}%)` : `> threshold (${(CER_THRESHOLD*100).toFixed(1)}%)`}</div>
-                    </div>
-                </div>
+    function showFinalSlide() {
+        document.getElementById('main-card').innerHTML = `
+            <h2>Thank You!</h2>
+            <p>Your evaluation is complete! Click below to submit your responses.</p>
+            <div class="btn-row" style="justify-content:flex-end;">
+                <button onclick="finalSubmit()">Submit &amp; Finish</button>
             </div>`;
     }
 
-    function toggleReveal() {
-        revealed = !revealed;
-        document.getElementById('results-content').classList.toggle('revealed', revealed);
-        document.getElementById('reveal-btn').textContent = revealed ? 'Hide Answer' : 'Reveal Answer';
-        if (revealed) renderCER();
-        window.scrollTo(0, 0);
+    function buildResults() {
+        const header = ["Participant_ID", "Folder", "File", "MOS_Technical", "MOS_Semantic"];
+        const rows = allClips.map((clip, i) => {
+            const ans = savedAnswers[i];
+            return [participantId, clip.folder, clip.file, ans.mos_tech || "", ans.mos_sem || ""];
+        });
+        return [header, ...rows];
     }
 
-    buildFilteredList();
-    buildSelect();
-    currentPos = Math.floor(Math.random() * filteredIndices.length);
-    loadSampleAtPos(currentPos);
+    function finalSubmit() {
+        const results = buildResults();
+        document.getElementById('main-card').innerHTML = `<h2>Submitting…</h2>`;
+
+        fetch(scriptURL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ results })
+        }).then(() => {
+            localStorage.setItem('mos_survey_v2_done', 'true');
+            document.getElementById('main-card').innerHTML =
+                `<h2>Success!</h2><p>Results saved. You can close this window now.</p>`;
+        }).catch(() => {
+            document.getElementById('main-card').innerHTML =
+                `<h2>Error</h2><p>Submission failed. Please try again or contact the researcher.</p>
+                 <div class="btn-row" style="justify-content:flex-end;">
+                     <button onclick="finalSubmit()">Retry</button>
+                 </div>`;
+        });
+    }
+
+    function startSurvey() {
+        document.getElementById('intro-card').style.display = 'none';
+        document.getElementById('survey-container').style.display = 'block';
+        loadQuestion();
+    }
 </script>
 </body>
 </html>
